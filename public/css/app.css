@@ -158,6 +158,8 @@ a { color: var(--accent); text-decoration: none; }
   padding: 12px 0; border-left: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
   overflow-y: auto;
 }
+/* modo lectura: visor normal, sin herramientas de subrayado ni estado de sincronización */
+body.reading .toolbar, body.reading .sync-badge { display: none; }
 .tool {
   padding: 8px; border-radius: 9px; color: var(--muted); display: inline-flex;
   transition: background .15s, color .15s; position: relative;

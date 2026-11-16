@@ -165,8 +165,9 @@ function buildFileCard(f) {
   return card;
 }
 
-function openViewer(path) {
-  location.href = 'viewer.html#' + encodeURIComponent(path);
+function openViewer(path, edit) {
+  // clic en la tarjeta → visor de lectura; «Editar subrayados» → ?edit=1
+  location.href = 'viewer.html' + (edit ? '?edit=1' : '') + '#' + encodeURIComponent(path);
 }
 
 /* ---------- menús de 3 puntos ---------- */
@@ -190,7 +191,7 @@ function menuItem(icon, label, cls, fn) {
 
 function openFileMenu(f, anchor) {
   menu.innerHTML = '';
-  menu.appendChild(menuItem(I.pen, 'Subrayar', '', () => openViewer(f.path)));
+  menu.appendChild(menuItem(I.pen, 'Editar subrayados', '', () => openViewer(f.path, true)));
   menu.appendChild(menuItem(I.download, 'Descargar original', '', () => {
     const a = document.createElement('a');
     a.href = '/files/' + encodeURIComponent(f.path);

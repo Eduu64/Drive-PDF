@@ -22,6 +22,19 @@ $('#ic-download').innerHTML = I.download;
 $('#zoom-in').innerHTML = I.plus;
 $('#zoom-out').innerHTML = I.minus;
 
+/* ---------- modo: lectura (defecto) o edición (?edit=1) ----------
+ * Lectura: visor normal de PDF, sin barra de herramientas. La edición solo
+ * se abre de forma explícita (botón ✏ del visor o «Editar subrayados» en el Drive). */
+const EDIT = new URLSearchParams(location.search).has('edit');
+document.body.classList.toggle('reading', !EDIT);
+$('#edit-btn').innerHTML = I.pen;
+if (!EDIT) $('#edit-btn').style.display = '';
+$('#edit-btn').addEventListener('click', () => { location.href = 'viewer.html?edit=1' + location.hash; });
+
+/* la flecha vuelve SIEMPRE al Drive (enlace explícito: funciona aunque el
+   visor se haya abierto en una pestaña nueva, donde history.back no hace nada) */
+$('#back-btn').addEventListener('click', () => { location.href = './index.html'; });
+
 const scrollEl = $('#pages-scroll');
 const pagesCol = $('#pages-col');
 const thumbsEl = $('#thumbs');
@@ -399,7 +412,7 @@ btnUndo.addEventListener('click', () => {
 
 /* selección de texto → subrayado */
 function onPageMouseUp(ev, pageNum) {
-  if (mode !== 'highlight' || deleteMode) return;
+  if (!EDIT || mode !== 'highlight' || deleteMode) return;
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
 
@@ -681,9 +694,9 @@ window.addEventListener('keydown', (ev) => {
   const t = ev.target.tagName;
   if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || ev.target.isContentEditable) return;
 
-  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') { ev.preventDefault(); syncNow(false); return; }
-  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); btnUndo.click(); return; }
-  if (ev.key === 'Escape') { deleteMode = false; mode = 'cursor'; applyMode(); buildColors(); return; }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') { if (!EDIT) return; ev.preventDefault(); syncNow(false); return; }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') { if (!EDIT) return; ev.preventDefault(); btnUndo.click(); return; }
+  if (ev.key === 'Escape') { if (!EDIT) return; deleteMode = false; mode = 'cursor'; applyMode(); buildColors(); return; }
   if (!numPages) return;
   if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown' || ev.key === 'PageDown') { ev.preventDefault(); scrollToPage(currentPage + 1); }
   else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp' || ev.key === 'PageUp') { ev.preventDefault(); scrollToPage(currentPage - 1); }
@@ -693,6 +706,7 @@ window.addEventListener('keydown', (ev) => {
 async function boot() {
   $('#doc-title').textContent = baseName;
   $('#doc-title').title = fileName;
+  document.title = baseName + ' · NAS PDF';
   buildColors();
   applyMode();
   $('#zoom-pct').textContent = Math.round(scale * 100) + '%';

@@ -28,11 +28,12 @@ Es la versión modular del proyecto anterior (Directus + PostgreSQL + MinIO + Re
 - **Búsqueda global** en toda la biblioteca (busca dentro de todas las carpetas y muestra la ruta de cada resultado).
 - **Mover y renombrar**: ⋮ → *Mover…* abre un modal con el árbol de carpetas; ⋮ → *Renombrar*. La capa de subrayado **viaja con el archivo** al moverlo o renombrarlo.
 - **Vista cuadrícula / lista** conmutables, subida con botón o arrastrando a la ventana (cae en la carpeta que estés viendo), modo día/noche.
+- **Abrir documentos**: clic en una tarjeta → **visor de lectura** (como un visor de PDF normal, sin herramientas); la edición se abre solo de forma explícita: ⋮ → *Editar subrayados*, o el botón ✏ dentro del propio visor. La flecha ← del visor vuelve siempre al Drive (aunque lo hayas abierto en pestaña nueva).
 - **Tiempo real (SSE)**: si subes, mueves o borras desde otro dispositivo, la vista se actualiza sola; los contadores de subrayados (✏ n) cambian al vivo cuando alguien subraya.
 
 ## La app de subrayado
 
-Barra derecha, de arriba abajo: **Cursor** (la selección normal no subraya; `Esc` vuelve a cursor; se recuerda entre sesiones) · **Subrayador** (selección con fusión de líneas) · **Modo borrado** (clic sobre un subrayado) · **Borrar TODOS los subrayados** (con confirmación y deshacible) · **Deshacer** (`Ctrl+Z`) · colores y opacidad · **Sincronizar** (`Ctrl+S`, con estado *Guardado ✓ / Cambios pendientes…*) · **Descargar PDF pintado** (se genera en tu navegador, no queda nada en el servidor) · **Pomodoro** 25 min.
+Se abre **de forma explícita** (⋮ → *Editar subrayados* en el Drive, o ✏ en el visor de lectura); lo que abre un clic normal es el visor de lectura, sin barra. Barra derecha, de arriba abajo: **Cursor** (la selección normal no subraya; `Esc` vuelve a cursor; se recuerda entre sesiones) · **Subrayador** (selección con fusión de líneas) · **Modo borrado** (clic sobre un subrayado) · **Borrar TODOS los subrayados** (con confirmación y deshacible) · **Deshacer** (`Ctrl+Z`) · colores y opacidad · **Sincronizar** (`Ctrl+S`, con estado *Guardado ✓ / Cambios pendientes…*) · **Descargar PDF pintado** (se genera en tu navegador, no queda nada en el servidor) · **Pomodoro** 25 min.
 
 - **Sincronización multi-dispositivo**: autoguardado cada 8 s sin cambios + descarga en vivo — si otro equipo subraya el mismo documento, tu visor recarga la capa solo y avisa con un toast.
 - **Los subrayados NO son persistentes a la fuerza**: puedes borrar uno, todos (botón o ⋮ del Drive), o dejar la capa a cero; el PDF original jamás se toca.
