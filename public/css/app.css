@@ -1,14 +1,6 @@
-/* NAS-PDF Lite — estilos compartidos (sin Tailwind, sin build) */
-:root {
-  --bg: #111827; --panel: #1f2937; --panel2: #111827; --border: #374151;
-  --text: #f9fafb; --muted: #9ca3af; --accent: #3b82f6; --accent-soft: rgba(59,130,246,.15);
-  --red: #ef4444; --green: #22c55e; --yellow: #facc15; --shadow: 0 8px 24px rgba(0,0,0,.45);
-}
-[data-theme="light"] {
-  --bg: #f3f4f6; --panel: #ffffff; --panel2: #f9fafb; --border: #e5e7eb;
-  --text: #1f2937; --muted: #6b7280; --accent-soft: rgba(59,130,246,.12);
-  --shadow: 0 8px 24px rgba(0,0,0,.12);
-}
+/* NAS-PDF Lite — estilos del visor (sin Tailwind, sin build)
+   Las variables de color/tema NO se definen aquí: vienen de tokens.css
+   (cárgalo antes de este archivo), que además da tema sistema/claro/oscuro. */
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body {

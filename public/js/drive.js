@@ -1,436 +1,878 @@
-/* NAS-PDF Lite — app principal estilo Drive (carpetas + tiempo real) */
+/* NAS PDF — Drive · aplicación principal (refactor)
+ * Mobile-first · accesible · 100 % local (sin librerías ni red externa).
+ * Requiere common.js (api, IC, toast, tema…). */
 'use strict';
 
-initTheme();
+/* ---------- referencias ---------- */
+const app = $('#app'), main = $('#main'), sidebar = $('#sidebar'), scrim = $('#scrim'), navBtn = $('#nav-btn');
+const itemsEl = $('#items'), stateEl = $('#state'), crumbsEl = $('#crumbs'), treeEl = $('#tree');
+const searchForm = $('#search-form'), searchInput = $('#search'), resultsTitle = $('#results-title');
+const selbar = $('#selbar'), selCount = $('#sel-count');
+const menuEl = $('#menu'), menuScrim = $('#menu-scrim');
+const statusEl = $('#status'), fileInput = $('#file-input'), dropOverlay = $('#drop-overlay');
+const themeBtn = $('#theme-btn'), viewBtns = $$('[data-view]');
+const dlgName = $('#dlg-name'), dlgConfirm = $('#dlg-confirm'), dlgMove = $('#dlg-move'), dlgUpload = $('#dlg-upload');
+$$('[data-ic]').forEach((n) => { n.innerHTML = IC[n.dataset.ic] || ''; });
 
-const grid = $('#grid');
-const content = $('#content');
-const area = $('#files-area');
-const searchInput = $('#search');
-const menu = $('#menu');
-const dropOverlay = $('#drop-overlay');
-const fileInput = $('#file-input');
-const breadcrumb = $('#breadcrumb');
-const moveModal = $('#move-modal');
+const mq = window.matchMedia('(min-width: 48em)');
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
 
-$('#logo-icon').innerHTML = I.logo;
-$('#search-icon').innerHTML = I.search;
-$('#upload-icon').innerHTML = I.upload;
-$('#folder-btn').innerHTML = I.folderPlus;
-$('#view-btn').innerHTML = I.grid;
-$('#move-close').innerHTML = I.x;
-$('#theme-btn').innerHTML = document.documentElement.dataset.theme === 'dark' ? I.sun : I.moon;
+/* ---------- utilidades ---------- */
+const parentOf = (p) => p.split('/').slice(0, -1).join('/');
+const hrefFor = (p) => '#/' + (p ? p.split('/').map(encodeURIComponent).join('/') : '');
+const viewerHref = (p) => 'viewer.html#' + encodeURIComponent(p);
+const viewerEditHref = (p) => 'viewer.html?edit=1#' + encodeURIComponent(p);
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+function cwdFromHash() {
+  const h = location.hash.replace(/^#\/?/, '');
+  if (!h) return '';
+  try { return h.split('/').map(decodeURIComponent).join('/'); } catch { return ''; }
+}
+let announceT;
+function announce(msg) {
+  statusEl.textContent = '';
+  clearTimeout(announceT);
+  announceT = setTimeout(() => { statusEl.textContent = msg; }, 60);
+}
 
-let cwd = '';                 // carpeta actual ('' = raíz)
-let view = localStorage.getItem('naspdf-view') || 'grid';
-let listing = { folders: [], files: [] };
-let query = '';
-let searching = false;
-let uploading = false;
-let moveTarget = null;        // path del archivo a mover (modal abierto)
-let moveDest = '';            // carpeta elegida en el modal
+const state = {
+  cwd: cwdFromHash(),
+  view: store.get('naspdf-view') === 'list' ? 'list' : 'grid',
+  query: '',
+  listing: { folders: [], files: [] },
+  byPath: new Map(),
+  folders: [],
+  selected: new Set(),
+};
 
-area.classList.toggle('list-view', view === 'list');
-$('#view-btn').innerHTML = view === 'list' ? I.grid : I.list;
-
-/* ---------- carga y render ---------- */
-async function load() {
-  if (searching) return;
-  content.classList.add('loading');
-  content.innerHTML = '<span class="spinner"></span>';
-  grid.style.display = 'none';
-  breadcrumb.style.display = query ? 'none' : 'flex';
-  try {
-    if (query) {
-      const r = await api('/api/search?q=' + encodeURIComponent(query));
-      listing = { folders: [], files: r.files };
-    } else {
-      listing = await api('/api/files?path=' + encodeURIComponent(cwd));
-    }
-    render();
-  } catch (e) {
-    content.innerHTML = '<div class="empty"><div class="big">⚠</div>' + e.message + '</div>';
-    return;
+/* ==========================================================================
+   Barra lateral: cajón en móvil, columna plegable en escritorio
+   ========================================================================== */
+const drawerOpen = () => !mq.matches && sidebar.classList.contains('open');
+function setSidebar(open, focus = true) {
+  if (mq.matches) {
+    app.classList.toggle('sb-collapsed', !open);
+    store.set('naspdf-sb', open ? '1' : '0');
+  } else {
+    sidebar.classList.toggle('open', open);
+    scrim.classList.toggle('show', open);
+    main.inert = open;
   }
+  navBtn.setAttribute('aria-expanded', String(open));
+  navBtn.setAttribute('aria-label', open ? 'Ocultar carpetas' : 'Mostrar carpetas');
+  if (!mq.matches && focus) (open ? $('#sb-close') : navBtn).focus();
 }
-
-function crumbs() {
-  const parts = cwd ? cwd.split('/') : [];
-  const acc = [];
-  const out = [{ name: 'Biblioteca', path: '' }];
-  for (const p of parts) {
-    acc.push(p);
-    out.push({ name: p, path: acc.join('/') });
-  }
-  return out;
+function syncSidebar() {
+  sidebar.classList.remove('open');
+  scrim.classList.remove('show');
+  main.inert = false;
+  const open = mq.matches && store.get('naspdf-sb') !== '0';
+  app.classList.toggle('sb-collapsed', mq.matches && !open);
+  navBtn.setAttribute('aria-expanded', String(open));
+  navBtn.setAttribute('aria-label', open ? 'Ocultar carpetas' : 'Mostrar carpetas');
 }
+navBtn.addEventListener('click', () => {
+  setSidebar(mq.matches ? app.classList.contains('sb-collapsed') : !sidebar.classList.contains('open'));
+});
+$('#sb-close').addEventListener('click', () => setSidebar(false));
+scrim.addEventListener('click', () => setSidebar(false));
+mq.addEventListener('change', syncSidebar);
 
-function renderBreadcrumb() {
-  breadcrumb.innerHTML = '';
-  const items = crumbs();
-  items.forEach((c, i) => {
-    if (i > 0) {
-      const sep = document.createElement('span');
-      sep.className = 'crumb-sep';
-      sep.innerHTML = I.chev;
-      breadcrumb.appendChild(sep);
-    }
-    const b = document.createElement('button');
-    b.className = 'crumb' + (i === items.length - 1 ? ' current' : '');
-    b.textContent = c.name;
-    b.addEventListener('click', () => { cwd = c.path; query = ''; searchInput.value = ''; load(); });
-    breadcrumb.appendChild(b);
-  });
-}
-
-function render() {
-  grid.innerHTML = '';
-  renderBreadcrumb();
-  breadcrumb.style.display = query ? 'none' : 'flex';
-  const emptyView = listing.folders.length === 0 && listing.files.length === 0;
-  if (emptyView) {
-    content.style.display = 'block';
-    content.classList.remove('loading');
-    content.innerHTML = query
-      ? '<div class="empty"><div class="big">🔍</div>Ningún documento coincide con la búsqueda</div>'
-      : '<div class="empty"><div class="big">📂</div>' + (cwd ? 'Carpeta vacía' : 'Sube tu primer PDF con el botón «Subir PDF»<br>o arrastrándolo aquí') + '</div>';
-    grid.style.display = 'none';
-    return;
-  }
-  content.style.display = 'none';
-  grid.style.display = 'grid';
-  for (const f of listing.folders) grid.appendChild(buildFolderCard(f));
-  for (const f of listing.files) grid.appendChild(buildFileCard(f));
-}
-
-function buildFolderCard(f) {
-  const card = document.createElement('div');
-  card.className = 'card folder';
-  card.innerHTML =
-    '<span class="f-icon f-icon-folder">' + I.folder + '</span>' +
-    '<div style="flex:1;min-width:0">' +
-      '<div class="f-name"></div>' +
-      '<div class="f-meta"><span>Carpeta</span></div>' +
-    '</div>' +
-    '<button class="dots" title="Más opciones">' + I.dots + '</button>';
-  card.querySelector('.f-name').textContent = f.name;
-  card.addEventListener('click', (ev) => {
-    if (ev.target.closest('.dots')) return;
-    cwd = f.path;
-    query = '';
-    searchInput.value = '';
-    load();
-  });
-  const dots = card.querySelector('.dots');
-  dots.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const wasOpen = menu.classList.contains('open');
-    closeMenu();
-    if (!wasOpen) { openFolderMenu(f, dots); dots.classList.add('open'); }
-  });
-  return card;
-}
-
-function buildFileCard(f) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  const route = f.path.split('/').slice(0, -1).join('/');
-  card.innerHTML =
-    '<span class="f-icon">' + I.logo + '</span>' +
-    '<div style="flex:1;min-width:0">' +
-      '<div class="f-name"></div>' +
-      '<div class="f-meta"><span>' + fmtSize(f.size) + '</span><span>' + fmtDate(f.mtime) + '</span>' +
-      (f.highlights ? '<span class="badge-hl">✏ ' + f.highlights + '</span>' : '') + '</div>' +
-    '</div>' +
-    '<button class="dots" title="Más opciones">' + I.dots + '</button>';
-  card.querySelector('.f-name').textContent = f.name;
-  card.title = route ? '📁 ' + route : '';
-  if (query && route) {
-    const routeEl = document.createElement('div');
-    routeEl.className = 'f-route';
-    routeEl.textContent = '📁 ' + route;
-    card.querySelector('.f-name').after(routeEl);
-  }
-  card.addEventListener('click', (ev) => {
-    if (ev.target.closest('.dots')) return;
-    openViewer(f.path);
-  });
-  const dots = card.querySelector('.dots');
-  dots.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const wasOpen = menu.classList.contains('open');
-    closeMenu();
-    if (!wasOpen) { openFileMenu(f, dots); dots.classList.add('open'); }
-  });
-  return card;
-}
-
-function openViewer(path, edit) {
-  // clic en la tarjeta → visor de lectura; «Editar subrayados» → ?edit=1
-  location.href = 'viewer.html' + (edit ? '?edit=1' : '') + '#' + encodeURIComponent(path);
-}
-
-/* ---------- menús de 3 puntos ---------- */
-function closeMenu() {
-  menu.classList.remove('open');
-  document.querySelectorAll('.card .dots.open').forEach((b) => b.classList.remove('open'));
-}
-document.addEventListener('click', (ev) => { if (!ev.target.closest('#menu')) closeMenu(); });
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { closeMenu(); closeMoveModal(); } });
-
-function menuItem(icon, label, cls, fn) {
-  const b = document.createElement('button');
-  if (cls) b.className = cls;
-  b.innerHTML = icon;
-  const span = document.createElement('span');
-  span.textContent = label;
-  b.appendChild(span);
-  b.addEventListener('click', () => { closeMenu(); fn(); });
-  return b;
-}
-
-function openFileMenu(f, anchor) {
-  menu.innerHTML = '';
-  menu.appendChild(menuItem(I.pen, 'Editar subrayados', '', () => openViewer(f.path, true)));
-  menu.appendChild(menuItem(I.download, 'Descargar original', '', () => {
+function renderTree() {
+  const had = treeEl.contains(document.activeElement) ? document.activeElement.dataset.nav : null;
+  treeEl.replaceChildren();
+  const add = (name, path, depth, icon) => {
+    const li = document.createElement('li');
     const a = document.createElement('a');
-    a.href = '/files/' + encodeURIComponent(f.path);
-    a.download = f.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }));
-  menu.appendChild(menuItem(I.moveI, 'Mover…', '', () => openMoveModal(f)));
-  menu.appendChild(menuItem(I.edit, 'Renombrar', '', async () => {
-    const newName = prompt('Nuevo nombre del PDF:', f.name);
-    if (!newName || newName === f.name) return;
-    const parent = f.path.split('/').slice(0, -1).join('/');
-    const to = parent ? parent + '/' + newName : newName;
-    try {
-      await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: f.path, to }) });
-      toast('Documento renombrado');
-      load();
-    } catch (e) { toast(e.message, true); }
-  }));
-  const clearBtn = menuItem(I.eraser, f.highlights ? 'Borrar subrayados (' + f.highlights + ')' : 'Borrar subrayados', '', async () => {
-    if (!confirm('¿Borrar TODOS los subrayados de «' + f.name + '»?\nEl PDF original no se toca; solo se elimina la capa de subrayado.')) return;
-    try {
-      await api('/api/annotations/' + encodeURIComponent(f.path), { method: 'DELETE' });
-      toast('Subrayados eliminados — el PDF queda limpio');
-      load();
-    } catch (e) { toast(e.message, true); }
-  });
-  if (!f.highlights) clearBtn.style.opacity = '0.45';
-  menu.appendChild(clearBtn);
-
-  const sep = document.createElement('div');
-  sep.className = 'sep';
-  menu.appendChild(sep);
-  menu.appendChild(menuItem(I.trash, 'Eliminar documento', 'danger', async () => {
-    if (!confirm('¿Eliminar «' + f.name + '» definitivamente?\nSe borrará el PDF y su capa de subrayados. Esta acción no se puede deshacer.')) return;
-    try {
-      await api('/api/files/' + encodeURIComponent(f.path), { method: 'DELETE' });
-      toast('Documento eliminado');
-      load();
-    } catch (e) { toast(e.message, true); }
-  }));
-  positionMenu(anchor);
+    a.className = 'tree-link';
+    a.href = hrefFor(path);
+    a.dataset.nav = path;
+    a.style.setProperty('--depth', depth);
+    if (!state.query && path === state.cwd) a.setAttribute('aria-current', 'page');
+    a.innerHTML = icon + '<span></span>';
+    a.lastChild.textContent = name;
+    if (path) a.title = path;
+    li.append(a);
+    treeEl.append(li);
+  };
+  add('Biblioteca', '', 0, IC.library);
+  for (const p of state.folders) add(p.split('/').pop(), p, p.split('/').length, IC.folder);
+  if (had !== null) { const a = $$('a', treeEl).find((x) => x.dataset.nav === had); if (a) a.focus({ preventScroll: true }); }
 }
-
-function openFolderMenu(f, anchor) {
-  menu.innerHTML = '';
-  menu.appendChild(menuItem(I.folder, 'Abrir carpeta', '', () => { cwd = f.path; query = ''; searchInput.value = ''; load(); }));
-  const sep = document.createElement('div');
-  sep.className = 'sep';
-  menu.appendChild(sep);
-  menu.appendChild(menuItem(I.trash, 'Eliminar carpeta (vacía)', 'danger', async () => {
-    if (!confirm('¿Eliminar la carpeta «' + f.name + '»?\nDebe estar vacía (así nunca se borra contenido por accidente).')) return;
-    try {
-      await api('/api/folders/' + encodeURIComponent(f.path), { method: 'DELETE' });
-      toast('Carpeta eliminada');
-      load();
-    } catch (e) { toast(e.message, true); }
-  }));
-  positionMenu(anchor);
-}
-
-function positionMenu(anchor) {
-  menu.style.visibility = 'hidden';
-  menu.classList.add('open');
-  const r = anchor.getBoundingClientRect();
-  const mw = menu.offsetWidth, mh = menu.offsetHeight;
-  let x = Math.min(r.left, window.innerWidth - mw - 10);
-  let y = r.bottom + 6;
-  if (y + mh > window.innerHeight - 10) y = Math.max(10, r.top - mh - 6);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
-  menu.style.visibility = 'visible';
-}
-
-/* ---------- modal "Mover a…" ---------- */
-function closeMoveModal() {
-  moveModal.classList.remove('open');
-  moveTarget = null;
-}
-$('#move-close').addEventListener('click', closeMoveModal);
-moveModal.addEventListener('click', (ev) => { if (ev.target === moveModal) closeMoveModal(); });
-
-async function openMoveModal(f) {
-  moveTarget = f;
-  $('#move-name').textContent = f.name;
-  moveDest = cwd;
-  const list = $('#move-list');
-  list.innerHTML = '<span class="spinner"></span>';
-  moveModal.classList.add('open');
+async function refreshFolders() {
   try {
     const r = await api('/api/folders');
-    list.innerHTML = '';
-    const mk = (label, path, cls) => {
-      const b = document.createElement('button');
-      b.className = 'move-item' + (cls ? ' ' + cls : '');
-      b.innerHTML = (path === '' ? I.logo : I.folder) + '<span></span>';
-      b.querySelector('span').textContent = label;
-      b.addEventListener('click', () => {
-        moveDest = path;
-        list.querySelectorAll('.move-item').forEach((x) => x.classList.remove('on'));
-        b.classList.add('on');
-      });
-      list.appendChild(b);
-    };
-    mk('Biblioteca (raíz)', '', 'move-root');
-    for (const dir of r.folders) mk(dir, dir);
-    // preselecciona "mover aquí" (la carpeta actual)
-    if (cwd === '') list.querySelector('.move-root').classList.add('on');
-    else [...list.querySelectorAll('.move-item')].find((b) => b.textContent === cwd)?.classList.add('on');
-  } catch (e) {
-    list.innerHTML = '<div class="empty">' + e.message + '</div>';
-  }
+    state.folders = (r.folders || []).slice().sort((a, b) => a.localeCompare(b, 'es'));
+    renderTree();
+  } catch { /* la barra lateral sigue mostrando lo último conocido */ }
 }
 
-$('#move-here').addEventListener('click', async () => {
-  if (!moveTarget) return;
-  const parent = moveTarget.path.split('/').slice(0, -1).join('/');
-  const to = moveDest ? moveDest + '/' + moveTarget.name : moveTarget.name;
-  if (to === moveTarget.path) { toast('Ya está en esa carpeta'); return closeMoveModal(); }
-  try {
-    await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: moveTarget.path, to }) });
-    toast('Documento movido');
-    closeMoveModal();
-    load();
-  } catch (e) { toast(e.message, true); }
+/* ==========================================================================
+   Navegación (hash → botón «atrás» del navegador funciona)
+   ========================================================================== */
+function navigate(path) {
+  const fromDrawer = drawerOpen();
+  if (state.query) clearSearch(true);
+  state.selected.clear();
+  const target = hrefFor(path);
+  if (location.hash === target || (!location.hash && path === '')) { state.cwd = path; load(); }
+  else location.hash = target;
+  if (fromDrawer) { setSidebar(false, false); main.focus({ preventScroll: true }); }
+}
+window.addEventListener('hashchange', () => {
+  state.cwd = cwdFromHash();
+  if (state.query) clearSearch(true);
+  state.selected.clear();
+  load();
+});
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-nav]');
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+  e.preventDefault();
+  navigate(a.dataset.nav);
 });
 
-/* ---------- subida (a la carpeta actual) ---------- */
-const UPLOAD_LABEL = $('#upload-label');
-async function uploadFiles(list) {
-  const pdfs = Array.from(list).filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
-  if (pdfs.length === 0) {
-    if (list.length > 0) toast('Solo se admiten archivos PDF', true);
-    return;
-  }
-  uploading = true;
-  $('#upload-btn').disabled = true;
-  UPLOAD_LABEL.textContent = 'Subiendo 0/' + pdfs.length;
-
-  let ok = 0, dup = 0, fail = 0;
-  for (let i = 0; i < pdfs.length; i++) {
-    UPLOAD_LABEL.textContent = 'Subiendo ' + (i + 1) + '/' + pdfs.length;
-    try {
-      await api('/api/files?path=' + encodeURIComponent(cwd ? cwd + '/' + pdfs[i].name : pdfs[i].name), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/pdf' },
-        body: pdfs[i],
-      });
-      ok++;
-    } catch (e) {
-      if (e.status === 409) dup++;
-      else fail++;
-    }
-  }
-
-  uploading = false;
-  $('#upload-btn').disabled = false;
-  UPLOAD_LABEL.textContent = 'Subir PDF';
-  if (ok && !fail && !dup) toast(ok === 1 ? 'Documento subido' : ok + ' documentos subidos');
-  else if (ok && dup) toast(ok + ' subidos · ' + dup + ' ya existían (sin sobrescribir)');
-  else if (ok && fail) toast(ok + ' subidos · ' + fail + ' con error', true);
-  else if (dup) toast('Ya existían (sin sobrescribir)', true);
-  else toast('No se pudo subir', true);
+/* ---------- búsqueda ---------- */
+let searchT;
+function applySearch() {
+  const q = searchInput.value.trim();
+  if (q === state.query) return;
+  state.query = q;
+  state.selected.clear();
   load();
 }
-
-$('#upload-btn').addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', async (ev) => {
-  await uploadFiles(ev.target.files);
-  fileInput.value = '';
+function clearSearch(noLoad) {
+  state.query = '';
+  searchInput.value = '';
+  if (!noLoad) load();
+}
+searchForm.addEventListener('submit', (e) => { e.preventDefault(); clearTimeout(searchT); applySearch(); });
+searchInput.addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(applySearch, 250); });
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && searchInput.value) { e.preventDefault(); clearSearch(); }
 });
 
-/* drag & drop en toda la ventana */
+/* ==========================================================================
+   Carga y render
+   ========================================================================== */
+let loadSeq = 0;
+async function load({ silent = false } = {}) {
+  const seq = ++loadSeq;
+  if (!silent) showLoading();
+  try {
+    let data;
+    if (state.query) {
+      const r = await api('/api/search?q=' + encodeURIComponent(state.query));
+      data = { folders: [], files: r.files };
+    } else {
+      data = await api('/api/files?path=' + encodeURIComponent(state.cwd));
+    }
+    if (seq !== loadSeq) return;
+    state.listing = data;
+    state.byPath = new Map([...data.folders, ...data.files].map((x) => [x.path, x]));
+    for (const p of [...state.selected]) if (!state.byPath.has(p)) state.selected.delete(p);
+    render(silent);
+  } catch (e) {
+    if (seq !== loadSeq) return;
+    showError(e.message);
+  }
+  refreshFolders();
+}
+
+function skeletonItem() {
+  const li = document.createElement('li');
+  li.className = 'item skeleton';
+  li.setAttribute('aria-hidden', 'true');
+  li.innerHTML = '<div class="item-card"><div class="item-preview sk"></div><div class="item-foot"><div class="item-text"><span class="sk sk-line"></span><span class="sk sk-line short"></span></div></div></div>';
+  return li;
+}
+function showLoading() {
+  stateEl.replaceChildren();
+  itemsEl.hidden = false;
+  itemsEl.setAttribute('aria-busy', 'true');
+  itemsEl.replaceChildren(...Array.from({ length: 8 }, skeletonItem));
+  selbar.hidden = true;
+}
+
+function stateBlock(icon, title, text, buttons) {
+  const d = document.createElement('div');
+  d.className = 'state';
+  d.innerHTML = icon + '<h2></h2><p></p>';
+  d.querySelector('h2').textContent = title;
+  d.querySelector('p').textContent = text;
+  (buttons || []).forEach((b) => d.append(b));
+  return d;
+}
+function actionBtn(label, icon, fn, primary = true) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn' + (primary ? ' btn-primary' : '');
+  b.innerHTML = (icon || '') + '<span></span>';
+  b.lastChild.textContent = label;
+  b.addEventListener('click', fn);
+  return b;
+}
+function showError(msg) {
+  itemsEl.hidden = true;
+  itemsEl.setAttribute('aria-busy', 'false');
+  itemsEl.replaceChildren();
+  selbar.hidden = true;
+  stateEl.replaceChildren(stateBlock(IC.alert, 'No se pudo cargar', msg, [actionBtn('Reintentar', '', () => load())]));
+  announce('Error: ' + msg);
+}
+function showEmpty() {
+  itemsEl.hidden = true;
+  selbar.hidden = true;
+  let block;
+  if (state.query) {
+    block = stateBlock(IC.search, 'Sin resultados', 'Ningún documento coincide con «' + state.query + '».',
+      [actionBtn('Borrar búsqueda', '', () => clearSearch(), false)]);
+  } else if (!state.cwd) {
+    block = stateBlock(IC.upload, 'Tu biblioteca está vacía', 'Sube tu primer PDF con el botón o arrastrándolo a esta ventana.',
+      [actionBtn('Subir PDF', IC.upload, () => openUpload())]);
+  } else {
+    block = stateBlock(IC.folder, 'Esta carpeta está vacía', 'Sube PDF aquí o arrástralos a esta ventana.',
+      [actionBtn('Subir PDF', IC.upload, () => openUpload())]);
+  }
+  stateEl.replaceChildren(block);
+}
+
+function renderCrumbs() {
+  const ol = crumbsEl.querySelector('ol');
+  ol.replaceChildren();
+  crumbsEl.hidden = !!state.query;
+  resultsTitle.hidden = !state.query;
+  if (state.query) { resultsTitle.textContent = 'Resultados para «' + state.query + '»'; return; }
+  const parts = state.cwd ? state.cwd.split('/') : [];
+  const crumbs = [{ name: 'Biblioteca', path: '' }];
+  parts.forEach((p, i) => crumbs.push({ name: p, path: parts.slice(0, i + 1).join('/') }));
+  crumbs.forEach((c, i) => {
+    const li = document.createElement('li');
+    if (i) li.insertAdjacentHTML('beforeend', '<span class="crumb-sep" aria-hidden="true">' + IC.chev + '</span>');
+    const last = i === crumbs.length - 1;
+    const el = document.createElement(last ? 'span' : 'a');
+    el.className = 'crumb';
+    el.textContent = c.name;
+    if (last) el.setAttribute('aria-current', 'page');
+    else { el.href = hrefFor(c.path); el.dataset.nav = c.path; }
+    li.append(el);
+    ol.append(li);
+  });
+}
+
+function render(silent) {
+  /* conserva el foco si la lista se redibuja por un evento en tiempo real */
+  const act = document.activeElement;
+  let restore = null;
+  if (itemsEl.contains(act) && act.closest('.item')) {
+    restore = { path: act.closest('.item').dataset.path, cls: ['item-link', 'item-menu', 'sel-input'].find((c) => act.classList.contains(c)) };
+  }
+  renderCrumbs();
+  const title = state.query ? 'Resultados de búsqueda' : (state.cwd ? state.cwd.split('/').pop() : 'Biblioteca');
+  $('#page-title').textContent = title;
+  document.title = 'NAS PDF · ' + title;
+  renderTree();
+
+  const { folders, files } = state.listing;
+  itemsEl.replaceChildren();
+  stateEl.replaceChildren();
+  itemsEl.setAttribute('aria-busy', 'false');
+  if (!folders.length && !files.length) {
+    showEmpty();
+    if (!silent) announce(state.query ? 'Sin resultados' : 'Carpeta vacía');
+    return;
+  }
+  itemsEl.hidden = false;
+  const frag = document.createDocumentFragment();
+  folders.forEach((f) => frag.append(buildFolder(f)));
+  files.forEach((f) => frag.append(buildFile(f)));
+  itemsEl.append(frag);
+  updateSelection(false);
+  if (restore && restore.cls) {
+    const li = itemsEl.querySelector('.item[data-path="' + CSS.escape(restore.path) + '"]');
+    const t = li && li.querySelector('.' + restore.cls);
+    if (t) t.focus({ preventScroll: true });
+  }
+  if (!silent) {
+    announce(state.query
+      ? plural(files.length, 'resultado', 'resultados')
+      : title + ': ' + plural(folders.length, 'carpeta', 'carpetas') + ' y ' + plural(files.length, 'documento', 'documentos'));
+  }
+}
+
+/* ---------- construcción de elementos ---------- */
+let uid = 0;
+function buildFolder(f) {
+  const id = ++uid;
+  const li = document.createElement('li');
+  li.className = 'item';
+  li.dataset.kind = 'folder';
+  li.dataset.path = f.path;
+  li.innerHTML =
+    '<div class="item-card" data-ft="folder">' +
+      '<div class="item-preview" aria-hidden="true">' + IC.folder + '</div>' +
+      '<div class="item-foot"><span class="item-ic" aria-hidden="true">' + IC.folder + '</span>' +
+      '<div class="item-text"><a class="item-link"><span></span></a>' +
+      '<span class="item-meta" id="m' + id + '"><span class="m-size">Carpeta</span></span></div>' +
+      '<button type="button" class="icon-btn item-menu" aria-haspopup="menu" aria-expanded="false">' + IC.dots + '</button></div>' +
+    '</div>';
+  const a = li.querySelector('.item-link');
+  a.href = hrefFor(f.path);
+  a.dataset.nav = f.path;
+  a.setAttribute('aria-describedby', 'm' + id);
+  a.firstChild.textContent = f.name;
+  li.querySelector('.item-menu').setAttribute('aria-label', 'Más opciones de la carpeta «' + f.name + '»');
+  return li;
+}
+
+function buildFile(f) {
+  const id = ++uid;
+  const kind = fileKind(f.name);
+  const ext = fileExt(f.name).toUpperCase();
+  const route = parentOf(f.path);
+  const hl = f.highlights || 0;
+  const li = document.createElement('li');
+  li.className = 'item';
+  li.dataset.kind = 'file';
+  li.dataset.path = f.path;
+  li.innerHTML =
+    '<div class="item-card" data-ft="' + kind + '">' +
+      '<div class="item-preview" aria-hidden="true">' + fileIcon(kind) + (ext ? '<span class="ft-tag">' + ext + '</span>' : '') + '</div>' +
+      '<label class="sel"><input type="checkbox" class="sel-input"><span class="sel-box" aria-hidden="true">' + IC.check + '</span></label>' +
+      '<div class="item-foot"><span class="item-ic" aria-hidden="true">' + fileIcon(kind) + '</span>' +
+      '<div class="item-text"><a class="item-link"><span></span></a>' +
+      '<span class="item-meta" id="m' + id + '">' +
+        '<span class="m-size">' + fmtSize(f.size) + '</span>' +
+        '<span class="m-date"><time datetime="' + new Date(f.mtime).toISOString() + '">' + fmtDate(f.mtime) + '</time></span>' +
+        (hl ? '<span class="badge-hl">' + IC.pen + '<span aria-hidden="true">' + hl + '</span><span class="sr-only">' + plural(hl, 'subrayado', 'subrayados') + '</span></span>' : '') +
+        (state.query && route ? '<span class="item-route">' + IC.folder + '<span></span></span>' : '') +
+      '</span></div>' +
+      '<button type="button" class="icon-btn item-menu" aria-haspopup="menu" aria-expanded="false">' + IC.dots + '</button></div>' +
+    '</div>';
+  const a = li.querySelector('.item-link');
+  a.href = viewerHref(f.path);
+  a.setAttribute('aria-describedby', 'm' + id);
+  a.firstChild.textContent = f.name;
+  const r = li.querySelector('.item-route span');
+  if (r) r.textContent = route;
+  li.querySelector('.sel-input').setAttribute('aria-label', 'Seleccionar «' + f.name + '»');
+  li.querySelector('.item-menu').setAttribute('aria-label', 'Más opciones de «' + f.name + '»');
+  return li;
+}
+
+/* ==========================================================================
+   Selección múltiple (solo documentos)
+   ========================================================================== */
+itemsEl.addEventListener('change', (e) => {
+  const cb = e.target.closest('.sel-input');
+  if (!cb) return;
+  const path = cb.closest('.item').dataset.path;
+  if (cb.checked) state.selected.add(path); else state.selected.delete(path);
+  updateSelection();
+});
+function selectedFiles() { return state.listing.files.filter((f) => state.selected.has(f.path)); }
+function updateSelection(say = true) {
+  const n = state.selected.size;
+  $$('.item[data-kind="file"]', itemsEl).forEach((li) => {
+    const on = state.selected.has(li.dataset.path);
+    li.querySelector('.item-card').classList.toggle('is-selected', on);
+    li.querySelector('.sel-input').checked = on;
+  });
+  itemsEl.classList.toggle('has-selection', n > 0);
+  selbar.hidden = n === 0;
+  selCount.textContent = plural(n, 'seleccionado', 'seleccionados');
+  $('#sel-all').textContent = n && n === state.listing.files.length ? 'Quitar selección' : 'Seleccionar todo';
+  if (say) announce(n ? selCount.textContent : 'Selección cancelada');
+}
+$('#sel-all').addEventListener('click', () => {
+  const all = state.listing.files.length;
+  if (state.selected.size === all) state.selected.clear();
+  else state.listing.files.forEach((f) => state.selected.add(f.path));
+  updateSelection();
+});
+$('#sel-clear').addEventListener('click', () => { state.selected.clear(); updateSelection(); main.focus({ preventScroll: true }); });
+$('#sel-move').addEventListener('click', (e) => openMove(selectedFiles(), e.currentTarget));
+$('#sel-del').addEventListener('click', (e) => deleteFiles(selectedFiles(), e.currentTarget));
+
+/* ==========================================================================
+   Menú «⋯» (patrón ARIA menu: flechas, Inicio/Fin, Esc, foco devuelto)
+   ========================================================================== */
+let menuAnchor = null;
+function openMenu(anchor, label, entries) {
+  closeMenu(false);
+  menuEl.replaceChildren();
+  menuEl.setAttribute('aria-label', label);
+  entries.forEach((en) => {
+    if (en === '-') { const hr = document.createElement('hr'); hr.setAttribute('role', 'separator'); menuEl.append(hr); return; }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.tabIndex = -1;
+    if (en.danger) b.className = 'danger';
+    if (en.disabled) b.setAttribute('aria-disabled', 'true');
+    b.innerHTML = en.icon + '<span></span>';
+    b.lastChild.textContent = en.label;
+    b.addEventListener('click', () => {
+      if (en.disabled) { toast(en.disabledMsg || 'No disponible', false); return; }
+      const a = menuAnchor;
+      closeMenu(false);
+      en.fn(a);
+    });
+    menuEl.append(b);
+  });
+  menuAnchor = anchor;
+  anchor.setAttribute('aria-expanded', 'true');
+  const sheet = !mq.matches;
+  menuEl.classList.toggle('sheet', sheet);
+  menuScrim.classList.toggle('show', sheet);
+  menuEl.style.left = menuEl.style.top = '';
+  menuEl.hidden = false;
+  if (!sheet) {
+    const r = anchor.getBoundingClientRect(), w = menuEl.offsetWidth, h = menuEl.offsetHeight;
+    const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+    const top = (r.bottom + 6 + h > window.innerHeight) ? Math.max(8, r.top - h - 6) : r.bottom + 6;
+    menuEl.style.left = left + 'px';
+    menuEl.style.top = top + 'px';
+  }
+  menuEl.querySelector('[role="menuitem"]').focus();
+}
+function closeMenu(restore = true) {
+  if (menuEl.hidden && !menuAnchor) return;
+  menuEl.hidden = true;
+  menuScrim.classList.remove('show');
+  if (menuAnchor) {
+    menuAnchor.setAttribute('aria-expanded', 'false');
+    if (restore && menuAnchor.isConnected) menuAnchor.focus();
+  }
+  menuAnchor = null;
+}
+menuEl.addEventListener('keydown', (e) => {
+  const its = $$('[role="menuitem"]', menuEl);
+  const i = its.indexOf(document.activeElement);
+  const go = (n) => { e.preventDefault(); its[(n + its.length) % its.length].focus(); };
+  if (e.key === 'ArrowDown') go(i + 1);
+  else if (e.key === 'ArrowUp') go(i - 1);
+  else if (e.key === 'Home') go(0);
+  else if (e.key === 'End') go(its.length - 1);
+  else if (e.key === 'Escape') { e.preventDefault(); closeMenu(); }
+  else if (e.key === 'Tab') { e.preventDefault(); closeMenu(); }
+});
+document.addEventListener('pointerdown', (e) => {
+  if (!menuEl.hidden && !menuEl.contains(e.target) && !(menuAnchor && menuAnchor.contains(e.target))) closeMenu(false);
+});
+window.addEventListener('resize', () => closeMenu(false));
+main.addEventListener('scroll', () => { if (!menuEl.hidden && !menuEl.classList.contains('sheet')) closeMenu(false); }, { passive: true });
+
+itemsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.item-menu');
+  if (!btn) return;
+  if (menuAnchor === btn) { closeMenu(); return; }
+  const li = btn.closest('.item');
+  const item = state.byPath.get(li.dataset.path);
+  if (!item) return;
+  if (li.dataset.kind === 'folder') {
+    openMenu(btn, 'Opciones de la carpeta ' + item.name, [
+      { icon: IC.folder, label: 'Abrir', fn: () => navigate(item.path) },
+      '-',
+      { icon: IC.trash, label: 'Eliminar carpeta (vacía)', danger: true, fn: (a) => deleteFolder(item, a) },
+    ]);
+  } else {
+    openMenu(btn, 'Opciones de ' + item.name, [
+      { icon: IC.pen, label: 'Editar subrayados', fn: () => { location.href = viewerEditHref(item.path); } },
+      { icon: IC.download, label: 'Descargar original', fn: () => downloadFile(item) },
+      { icon: IC.move, label: 'Mover…', fn: (a) => openMove([item], a) },
+      { icon: IC.edit, label: 'Renombrar', fn: (a) => renameFile(item, a) },
+      { icon: IC.eraser, label: item.highlights ? 'Borrar subrayados (' + item.highlights + ')' : 'Borrar subrayados',
+        disabled: !item.highlights, disabledMsg: 'Este documento no tiene subrayados', fn: (a) => clearHighlights(item, a) },
+      '-',
+      { icon: IC.trash, label: 'Eliminar documento', danger: true, fn: (a) => deleteFiles([item], a) },
+    ]);
+  }
+});
+
+/* ==========================================================================
+   Diálogos nativos <dialog> (foco atrapado, Esc y foco devuelto)
+   ========================================================================== */
+function openDialog(dlg, trigger) {
+  dlg._trigger = trigger instanceof HTMLElement ? trigger : null;
+  dlg.returnValue = '';
+  dlg.showModal();
+}
+$$('dialog').forEach((d) => {
+  d.addEventListener('close', () => {
+    const t = d._trigger;
+    d._trigger = null;
+    requestAnimationFrame(() => {
+      if (t && t.isConnected) t.focus();
+      else if (!document.querySelector('dialog[open]')) main.focus({ preventScroll: true });
+    });
+  });
+  d.addEventListener('click', (e) => {
+    if (e.target === d || e.target.closest('[data-close]')) d.close('cancel');
+  });
+});
+
+const dnInput = $('#dn-input'), dnError = $('#dn-error'), dnOk = $('#dn-ok');
+let nameValidate = null;
+$('#dn-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const err = nameValidate ? nameValidate(dnInput.value.trim()) : '';
+  if (err) {
+    dnError.textContent = err;
+    dnInput.setAttribute('aria-invalid', 'true');
+    dnInput.focus();
+    return;
+  }
+  dlgName.close('ok');
+});
+dnInput.addEventListener('input', () => { dnError.textContent = ''; dnInput.removeAttribute('aria-invalid'); });
+function validateName(v) {
+  if (!v) return 'Escribe un nombre.';
+  if (/[\\/]/.test(v)) return 'El nombre no puede contener / ni \\.';
+  if (v.startsWith('.')) return 'El nombre no puede empezar por un punto.';
+  return '';
+}
+function askName({ title, label, value = '', confirm, validate = validateName, selectBase = false, trigger }) {
+  return new Promise((resolve) => {
+    $('#dn-title').textContent = title;
+    $('#dn-label').textContent = label;
+    dnOk.textContent = confirm;
+    dnInput.value = value;
+    dnError.textContent = '';
+    dnInput.removeAttribute('aria-invalid');
+    nameValidate = validate;
+    const done = () => {
+      dlgName.removeEventListener('close', done);
+      resolve(dlgName.returnValue === 'ok' ? dnInput.value.trim() : null);
+    };
+    dlgName.addEventListener('close', done);
+    openDialog(dlgName, trigger);
+    dnInput.focus();
+    if (selectBase && /\.pdf$/i.test(value)) dnInput.setSelectionRange(0, value.length - 4); else dnInput.select();
+  });
+}
+function confirmBox({ title, message, confirm, danger = false, trigger }) {
+  return new Promise((resolve) => {
+    $('#cf-title').textContent = title;
+    $('#cf-msg').textContent = message;
+    const ok = $('#cf-ok');
+    ok.textContent = confirm;
+    ok.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    const done = () => {
+      dlgConfirm.removeEventListener('close', done);
+      resolve(dlgConfirm.returnValue === 'ok');
+    };
+    dlgConfirm.addEventListener('close', done);
+    openDialog(dlgConfirm, trigger);
+    (danger ? $('#cf-cancel') : ok).focus();   // en acciones destructivas el foco empieza en «Cancelar»
+  });
+}
+
+/* ==========================================================================
+   Acciones sobre carpetas y documentos
+   ========================================================================== */
+const apiPath = (p) => '/api/files/' + encodeURIComponent(p);
+const afterChange = () => load({ silent: true });
+
+async function createFolder(trigger) {
+  const name = await askName({ title: 'Nueva carpeta', label: 'Nombre de la carpeta', confirm: 'Crear', trigger });
+  if (name === null) return;
+  const path = state.cwd ? state.cwd + '/' + name : name;
+  try {
+    await api('/api/folders?path=' + encodeURIComponent(path), { method: 'POST' });
+    toast('Carpeta «' + name + '» creada');
+    afterChange();
+  } catch (e) { toast(e.message, true); }
+}
+async function deleteFolder(f, trigger) {
+  const ok = await confirmBox({ title: 'Eliminar carpeta', message: '¿Eliminar la carpeta «' + f.name + '»? Debe estar vacía.', confirm: 'Eliminar', danger: true, trigger });
+  if (!ok) return;
+  try {
+    await api('/api/folders/' + encodeURIComponent(f.path), { method: 'DELETE' });
+    toast('Carpeta eliminada');
+    afterChange();
+  } catch (e) { toast(e.message, true); }
+}
+function downloadFile(f) {
+  const a = document.createElement('a');
+  a.href = '/files/' + encodeURIComponent(f.path);
+  a.download = f.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+async function renameFile(f, trigger) {
+  const name = await askName({
+    title: 'Renombrar documento', label: 'Nombre del PDF', value: f.name, confirm: 'Renombrar', selectBase: true, trigger,
+    validate: (v) => validateName(v),
+  });
+  if (name === null || name === f.name) return;
+  const finalName = /\.pdf$/i.test(name) ? name : name + '.pdf';
+  const dir = parentOf(f.path);
+  try {
+    await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: f.path, to: dir ? dir + '/' + finalName : finalName }) });
+    toast('Documento renombrado');
+    afterChange();
+  } catch (e) { toast(e.status === 409 ? 'Ya existe un documento con ese nombre' : e.message, true); }
+}
+async function clearHighlights(f, trigger) {
+  const ok = await confirmBox({ title: 'Borrar subrayados', message: '¿Borrar los ' + f.highlights + ' subrayados de «' + f.name + '»? El PDF original no se modifica.', confirm: 'Borrar subrayados', danger: true, trigger });
+  if (!ok) return;
+  try {
+    await api('/api/annotations/' + encodeURIComponent(f.path), { method: 'DELETE' });
+    toast('Subrayados borrados');
+    afterChange();
+  } catch (e) { toast(e.message, true); }
+}
+async function deleteFiles(files, trigger) {
+  if (!files.length) return;
+  const one = files.length === 1;
+  const ok = await confirmBox({
+    title: one ? 'Eliminar documento' : 'Eliminar ' + files.length + ' documentos',
+    message: one ? '¿Eliminar «' + files[0].name + '» y sus subrayados? Esta acción no se puede deshacer.'
+                 : '¿Eliminar los ' + files.length + ' documentos seleccionados y sus subrayados? Esta acción no se puede deshacer.',
+    confirm: 'Eliminar', danger: true, trigger,
+  });
+  if (!ok) return;
+  let done = 0, fail = 0, last = '';
+  for (const f of files) {
+    try { await api(apiPath(f.path), { method: 'DELETE' }); done++; state.selected.delete(f.path); }
+    catch (e) { fail++; last = e.message; }
+  }
+  if (fail) toast(done + ' eliminados, ' + fail + ' con error' + (last ? ': ' + last : ''), true);
+  else toast(one ? 'Documento eliminado' : done + ' documentos eliminados');
+  afterChange();
+}
+
+/* ---------- mover a… ---------- */
+const mvList = $('#mv-list'), mvOk = $('#mv-ok');
+let mvTargets = [];
+async function openMove(files, trigger) {
+  if (!files.length) return;
+  mvTargets = files;
+  $('#mv-desc').textContent = files.length === 1 ? '«' + files[0].name + '»' : files.length + ' documentos';
+  mvList.innerHTML = '<p class="muted">Cargando carpetas…</p>';
+  mvOk.disabled = true;
+  openDialog(dlgMove, trigger);
+  try {
+    const r = await api('/api/folders');
+    const folders = (r.folders || []).slice().sort((a, b) => a.localeCompare(b, 'es'));
+    const current = parentOf(files[0].path);
+    mvList.replaceChildren();
+    const mk = (label, path, depth, icon) => {
+      const l = document.createElement('label');
+      l.className = 'move-item';
+      l.style.setProperty('--depth', depth);
+      l.innerHTML = '<input type="radio" name="dest">' + icon + '<span></span><span class="chk" aria-hidden="true">' + IC.check + '</span>';
+      const input = l.querySelector('input');
+      input.value = path;
+      input.checked = path === current;
+      l.children[2].textContent = label;
+      mvList.append(l);
+    };
+    mk('Biblioteca (raíz)', '', 0, IC.library);
+    folders.forEach((p) => mk(p.split('/').pop(), p, p.split('/').length, IC.folder));
+    if (!mvList.querySelector('input:checked')) mvList.querySelector('input').checked = true;
+    mvOk.disabled = false;
+    (mvList.querySelector('input:checked') || mvList.querySelector('input')).focus();
+  } catch (e) {
+    mvList.innerHTML = '<p class="field-error"></p>';
+    mvList.firstChild.textContent = e.message;
+  }
+}
+$('#mv-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const sel = mvList.querySelector('input:checked');
+  if (!sel || mvOk.disabled) return;
+  const dest = sel.value;
+  mvOk.disabled = true;
+  let ok = 0, dup = 0, fail = 0, same = 0, last = '';
+  for (const f of mvTargets) {
+    const to = dest ? dest + '/' + f.name : f.name;
+    if (to === f.path) { same++; continue; }
+    try {
+      await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: f.path, to }) });
+      ok++; state.selected.delete(f.path);
+    } catch (err) { if (err.status === 409) dup++; else { fail++; last = err.message; } }
+  }
+  dlgMove.close('ok');
+  if (ok && !dup && !fail) toast(plural(ok, 'documento movido', 'documentos movidos'));
+  else if (!ok && same && !dup && !fail) toast('Ya está en esa carpeta');
+  else if (fail) toast(ok + ' movidos, ' + fail + ' con error' + (last ? ': ' + last : ''), true);
+  else toast(ok + ' movidos; ' + dup + ' ya existían en el destino', true);
+  afterChange();
+});
+
+/* ==========================================================================
+   Subida de PDF: diálogo + cola con progreso + arrastrar y soltar
+   ========================================================================== */
+const upList = $('#up-list'), upWrap = $('#up-progress-wrap'), upText = $('#up-progress-text'), upBar = $('#up-progress');
+const up = { queue: [], running: false, total: 0, done: 0, ok: 0, dup: 0, fail: 0 };
+const UP_LABEL = { wait: ['En cola', 'clock'], run: ['Subiendo…', 'spinner'], ok: ['Subido', 'check'], dup: ['Ya existía', 'info'], err: ['Error', 'alert'] };
+
+function openUpload(trigger) {
+  if (!up.running) resetUpload();
+  $('#up-dest').textContent = 'Destino: ' + (state.cwd ? '«' + state.cwd + '»' : 'Biblioteca (raíz)');
+  if (!dlgUpload.open) openDialog(dlgUpload, trigger || document.activeElement);
+}
+function resetUpload() {
+  upList.replaceChildren();
+  upWrap.hidden = true;
+  up.total = up.done = up.ok = up.dup = up.fail = 0;
+}
+function setRow(row, st, msg) {
+  const [label, icon] = UP_LABEL[st];
+  row.dataset.state = st;
+  row.querySelector('.up-status').innerHTML = IC[icon] + '<span></span>';
+  row.querySelector('.up-status span').textContent = st === 'err' && msg ? 'Error: ' + msg : label;
+}
+function buildUpRow(name) {
+  const li = document.createElement('li');
+  li.className = 'up-item';
+  li.innerHTML = '<span class="up-name"></span><span class="up-status"></span>';
+  li.querySelector('.up-name').textContent = name;
+  li.querySelector('.up-name').title = name;
+  setRow(li, 'wait');
+  return li;
+}
+function updateProgress() {
+  upWrap.hidden = up.total === 0;
+  const pct = up.total ? Math.round((up.done / up.total) * 100) : 0;
+  upText.textContent = up.done + ' de ' + plural(up.total, 'archivo', 'archivos');
+  upBar.setAttribute('aria-valuenow', String(pct));
+  upBar.firstElementChild.style.width = pct + '%';
+}
+function enqueueUpload(fileList) {
+  const files = Array.from(fileList);
+  const pdfs = files.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+  if (!pdfs.length) { if (files.length) toast('Solo se admiten archivos PDF', true); return; }
+  openUpload();
+  if (!up.running) resetUpload();
+  for (const file of pdfs) {
+    const row = buildUpRow(file.name);
+    upList.append(row);
+    up.queue.push({ file, row, dir: state.cwd });
+    up.total++;
+  }
+  updateProgress();
+  runUploads();
+}
+async function runUploads() {
+  if (up.running) return;
+  up.running = true;
+  while (up.queue.length) {
+    const job = up.queue.shift();
+    setRow(job.row, 'run');
+    job.row.scrollIntoView({ block: 'nearest' });
+    const path = job.dir ? job.dir + '/' + job.file.name : job.file.name;
+    try {
+      await api('/api/files?path=' + encodeURIComponent(path), { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: job.file });
+      setRow(job.row, 'ok'); up.ok++;
+    } catch (e) {
+      if (e.status === 409) { setRow(job.row, 'dup'); up.dup++; }
+      else { setRow(job.row, 'err', e.message); up.fail++; }
+    }
+    up.done++;
+    updateProgress();
+  }
+  up.running = false;
+  if (up.ok) toast(plural(up.ok, 'PDF subido', 'PDF subidos') + (up.dup ? ' (' + up.dup + ' ya existían)' : '') + (up.fail ? ' (' + up.fail + ' con error)' : ''), !!up.fail);
+  else if (up.dup && !up.fail) toast('Los archivos ya existían', true);
+  else if (up.fail) toast('No se pudo subir ningún archivo', true);
+  afterChange();
+}
+$('#upload-btn').addEventListener('click', (e) => openUpload(e.currentTarget));
+$('#dz-pick').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { enqueueUpload(fileInput.files); fileInput.value = ''; });
+
+/* arrastrar y soltar: toda la ventana, y feedback propio sobre la zona del diálogo */
+const dropzone = $('#dropzone');
 let dragDepth = 0;
-window.addEventListener('dragenter', (ev) => {
-  if (Array.from(ev.dataTransfer.types).includes('Files')) {
-    dragDepth++;
+const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+window.addEventListener('dragenter', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  if (!dlgUpload.open) {
+    $('#drop-text').textContent = 'Suelta aquí para subir a ' + (state.cwd ? '«' + state.cwd + '»' : 'la biblioteca');
     dropOverlay.classList.add('on');
   }
 });
-window.addEventListener('dragleave', () => {
-  if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.classList.remove('on'); }
+window.addEventListener('dragover', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dropzone.classList.toggle('is-over', dlgUpload.open && !!e.target.closest && !!e.target.closest('#dropzone'));
 });
-window.addEventListener('dragover', (ev) => ev.preventDefault());
-window.addEventListener('drop', async (ev) => {
-  ev.preventDefault();
+window.addEventListener('dragleave', (e) => {
+  if (!hasFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) { dropOverlay.classList.remove('on'); dropzone.classList.remove('is-over'); }
+});
+window.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
   dragDepth = 0;
   dropOverlay.classList.remove('on');
-  if (ev.dataTransfer.files.length) await uploadFiles(ev.dataTransfer.files);
+  dropzone.classList.remove('is-over');
+  enqueueUpload(e.dataTransfer.files);
 });
 
-/* ---------- carpeta nueva, vista, buscador, tema ---------- */
-$('#folder-btn').addEventListener('click', async () => {
-  const name = prompt('Nombre de la carpeta nueva (dentro de «' + (cwd || 'Biblioteca') + '»):');
-  if (!name) return;
-  const parentSeg = name.trim();
-  if (parentSeg.startsWith('.') || parentSeg.includes('/') || parentSeg.includes('\\')) {
-    return toast('Nombre de carpeta no válido', true);
+/* ==========================================================================
+   Barra de herramientas: carpeta nueva, vista, tema
+   ========================================================================== */
+$('#folder-btn').addEventListener('click', (e) => createFolder(e.currentTarget));
+
+function setView(v, animate = true) {
+  const apply = () => {
+    state.view = v;
+    store.set('naspdf-view', v);
+    itemsEl.classList.toggle('is-grid', v === 'grid');
+    itemsEl.classList.toggle('is-list', v === 'list');
+    viewBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+  };
+  if (animate && document.startViewTransition && !reducedMotion()) document.startViewTransition(apply);
+  else apply();
+}
+viewBtns.forEach((b) => b.addEventListener('click', () => { if (b.dataset.view !== state.view) setView(b.dataset.view); }));
+
+function paintTheme() {
+  const p = getThemePref();
+  themeBtn.innerHTML = { system: IC.monitor, light: IC.sun, dark: IC.moon }[p];
+  themeBtn.setAttribute('aria-label', 'Tema: ' + THEME_LABEL[p] + '. Cambiar tema');
+  themeBtn.title = 'Tema: ' + THEME_LABEL[p];
+}
+themeBtn.addEventListener('click', () => { const p = cycleTheme(); paintTheme(); announce('Tema: ' + THEME_LABEL[p]); });
+
+/* ---------- atajos de teclado ---------- */
+document.addEventListener('keydown', (e) => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+  if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && !document.querySelector('dialog[open]')) {
+    e.preventDefault();
+    searchInput.focus();
+    return;
   }
-  try {
-    await api('/api/folders?path=' + encodeURIComponent(cwd ? cwd + '/' + parentSeg : parentSeg), { method: 'POST' });
-    toast('Carpeta creada');
-    load();
-  } catch (e) { toast(e.message, true); }
+  if (e.key !== 'Escape' || document.querySelector('dialog[open]') || !menuEl.hidden) return;
+  if (drawerOpen()) setSidebar(false);
+  else if (state.selected.size) { state.selected.clear(); updateSelection(); }
 });
 
-$('#view-btn').addEventListener('click', () => {
-  view = view === 'grid' ? 'list' : 'grid';
-  localStorage.setItem('naspdf-view', view);
-  area.classList.toggle('list-view', view === 'list');
-  $('#view-btn').innerHTML = view === 'list' ? I.grid : I.list;
-});
-
-let searchTimer = null;
-searchInput.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    query = searchInput.value.trim();
-    searching = false;
-    load();
-  }, 250);
-});
-
-$('#theme-btn').addEventListener('click', () => {
-  const isDark = toggleTheme(document.documentElement.dataset.theme === 'dark');
-  $('#theme-btn').innerHTML = isDark ? I.sun : I.moon;
-});
-
-/* ---------- tiempo real (SSE): cualquier cambio refresca la vista ---------- */
+/* ==========================================================================
+   Tiempo real (SSE del propio servidor) e inicio
+   ========================================================================== */
+let evT;
 function connectEvents() {
   if (!window.EventSource) return;
   const es = new EventSource('/api/events');
-  let pending = null;
-  es.onmessage = (ev) => {
-    if (pending) return;
-    pending = setTimeout(() => { pending = null; load(); }, 250);
-  };
-  es.onerror = () => { /* EventSource reintenta solo */ };
+  es.onmessage = () => { clearTimeout(evT); evT = setTimeout(() => load({ silent: true }), 300); };
+  es.onerror = () => { /* el navegador reintenta solo */ };
 }
-ensureAuth().then(connectEvents);
+
+setView(state.view, false);
+paintTheme();
+syncSidebar();
 load();
+ensureAuth().then(connectEvents);

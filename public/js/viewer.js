@@ -32,8 +32,13 @@ if (!EDIT) $('#edit-btn').style.display = '';
 $('#edit-btn').addEventListener('click', () => { location.href = 'viewer.html?edit=1' + location.hash; });
 
 /* la flecha vuelve SIEMPRE al Drive (enlace explícito: funciona aunque el
-   visor se haya abierto en una pestaña nueva, donde history.back no hace nada) */
-$('#back-btn').addEventListener('click', () => { location.href = './index.html'; });
+   visor se haya abierto en una pestaña nueva, donde history.back no hace nada).
+   Conserva la carpeta en la que estabas gracias al enrutado por hash del Drive
+   (se calcula en el clic: fileName aún no está declarado al cargar el script). */
+$('#back-btn').addEventListener('click', () => {
+  const dir = fileName.includes('/') ? fileName.split('/').slice(0, -1).join('/') : '';
+  location.href = dir ? './index.html#/' + dir.split('/').map(encodeURIComponent).join('/') : './index.html';
+});
 
 const scrollEl = $('#pages-scroll');
 const pagesCol = $('#pages-col');

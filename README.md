@@ -22,13 +22,17 @@ Es la versión modular del proyecto anterior (Directus + PostgreSQL + MinIO + Re
 
 ---
 
-## La app principal (estilo Drive)
+## La app principal (estilo Drive — rediseño UI/UX completo)
 
-- **Carpetas**: botón «Nueva carpeta», migas de pan (`Biblioteca › Universidad › Curso 2026`), tarjetas de carpeta con menú ⋮ (abrir / eliminar — solo si está vacía, para no borrar contenido por accidente).
-- **Búsqueda global** en toda la biblioteca (busca dentro de todas las carpetas y muestra la ruta de cada resultado).
-- **Mover y renombrar**: ⋮ → *Mover…* abre un modal con el árbol de carpetas; ⋮ → *Renombrar*. La capa de subrayado **viaja con el archivo** al moverlo o renombrarlo.
-- **Vista cuadrícula / lista** conmutables, subida con botón o arrastrando a la ventana (cae en la carpeta que estés viendo), modo día/noche.
-- **Abrir documentos**: clic en una tarjeta → **visor de lectura** (como un visor de PDF normal, sin herramientas); la edición se abre solo de forma explícita: ⋮ → *Editar subrayados*, o el botón ✏ dentro del propio visor. La flecha ← del visor vuelve siempre al Drive (aunque lo hayas abierto en pestaña nueva).
+> Interfaz renovada con un **sistema de diseño propio** (`css/tokens.css`: variables semánticas, contraste AA/AAA, tipografía y escalas fluidas) y estilos nuevos (`css/drive.css`). Mobile-first y accesible (roles ARIA, foco gestionado, live regions, `prefers-reduced-motion`, skip-link).
+
+- **Barra lateral con árbol de carpetas** en escritorio (plegable) y **cajón deslizante en móvil**; navegación por hash (`#/Universidad/…`) → el botón **atrás del navegador funciona** y las migas son enlaces reales.
+- **Carpetas**: «Nueva carpeta» y «Renombrar» con **diálogos nativos `<dialog>`** (validación en línea, foco atrapado, Esc); menú ⋮ tipo ARIA (flechas para navegar, hoja inferior en móvil).
+- **Selección múltiple de documentos**: casillas en las tarjetas → barra de acciones (seleccionar todo / **mover en lote** / **eliminar en lote**), con confirmación y resumen por archivo.
+- **Subida con cola y progreso**: diálogo con zona de arrastre, estado por archivo (en cola / subiendo / subido / ya existía / error), barra global y toasts; también arrastra PDFs a cualquier parte de la ventana.
+- **Búsqueda global** (`/` la enfoca desde cualquier punto de la página) y **vista cuadrícula / lista** con transición suave (respeta `prefers-reduced-motion`).
+- **Tema sistema / claro / oscuro** en un clic (sigue a `prefers-color-scheme` por defecto); toasts accesibles.
+- **Abrir documentos**: clic en una tarjeta → **visor de lectura** (como un visor de PDF normal, sin herramientas); la edición se abre solo de forma explícita: ⋮ → *Editar subrayados*, o el botón ✏ dentro del propio visor. La flecha ← del visor vuelve al Drive **en la carpeta en la que estabas**.
 - **Tiempo real (SSE)**: si subes, mueves o borras desde otro dispositivo, la vista se actualiza sola; los contadores de subrayados (✏ n) cambian al vivo cuando alguien subraya.
 
 ## La app de subrayado
@@ -131,9 +135,11 @@ NAS-PDF-Lite/
 ├── public/
 │   ├── index.html         ← app Drive (carpetas, búsqueda, mover, tiempo real)
 │   ├── viewer.html        ← app de subrayado
-│   ├── css/app.css        ← estilos (sin Tailwind, sin build)
-│   ├── js/common.js       ← helpers + token + iconos
-│   ├── js/drive.js        ← lógica de la biblioteca
+│   ├── css/tokens.css     ← sistema de diseño (variables semánticas, AA/AAA, temas)
+│   ├── css/drive.css      ← estilos del Drive (rediseño UI/UX, mobile-first)
+│   ├── css/app.css        ← estilos del visor (usa las variables de tokens.css)
+│   ├── js/common.js       ← helpers + token + iconos (I/IC) + tema 3 estados + toasts
+│   ├── js/drive.js        ← lógica de la biblioteca (árbol, selección, diálogos, hash)
 │   ├── js/viewer.js       ← visor + subrayado + sincronización + SSE
 │   └── vendor/            ← pdf.js 3.11.174 + pdf-lib 1.17.1 vendidos
 ├── reverse-proxy/         ← nginx: allowlist LAN, cabeceras, SSE sin buffering

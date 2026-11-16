@@ -1,0 +1,692 @@
+/* ==========================================================================
+   NAS PDF — Sistema de tokens (CSS puro, 100 % local)
+   --------------------------------------------------------------------------
+   · Sin @import, sin url() remotos, sin CDNs: solo pilas de fuentes del sistema.
+   · Tres capas:  1) Primitivos  →  2) Semánticos (tema)  →  3) Componentes.
+   · Tema: sigue al sistema (prefers-color-scheme) y se puede forzar con
+     <html data-theme="light|dark">  (compatible con tu initTheme() actual).
+   · Contraste: texto principal AAA (≥ 7:1). Texto secundario y de acento AA
+     (≥ 4,5:1) y AAA en `prefers-contrast: more`. Bordes de controles ≥ 3:1.
+   · Escalas fluidas con clamp() entre 360 px y 1280 px de viewport. Mínimo y
+     máximo en rem, así el zoom/tamaño de fuente del usuario se respeta (WCAG 1.4.4).
+   · Orden de carga:  <link rel="stylesheet" href="/css/tokens.css">  antes de app.css
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1 · PRIMITIVOS — valores en bruto. No se usan directamente en componentes.
+   ========================================================================== */
+:root {
+  /* Neutros (gris azulado) */
+  --n-0:   #ffffff;
+  --n-50:  #f8fafc;
+  --n-100: #f1f5f9;
+  --n-200: #e2e8f0;
+  --n-300: #cbd5e1;
+  --n-400: #94a3b8;
+  --n-500: #64748b;
+  --n-600: #475569;
+  --n-700: #334155;
+  --n-800: #1e293b;
+  --n-900: #0f172a;
+  --n-950: #0b1120;
+
+  /* Azul (acento) */
+  --blue-50:  #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-300: #93c5fd;
+  --blue-400: #60a5fa;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --blue-900: #1e3a8a;
+
+  /* Rojo (peligro) */
+  --red-50:  #fef2f2;
+  --red-200: #fecaca;
+  --red-300: #fca5a5;
+  --red-700: #b91c1c;
+  --red-800: #991b1b;
+  --red-900: #7f1d1d;
+
+  /* Verde (éxito) */
+  --green-50:  #f0fdf4;
+  --green-300: #86efac;
+  --green-700: #15803d;
+  --green-800: #166534;
+  --green-900: #14532d;
+
+  /* Ámbar (aviso, carpetas, insignia de subrayados) */
+  --amber-50:  #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-300: #fcd34d;
+  --amber-400: #fbbf24;
+  --amber-700: #b45309;
+  --amber-800: #92400e;
+  --amber-900: #78350f;
+
+  /* Marcadores de subrayado (se pintan sobre la página blanca del PDF, no
+     dependen del tema). Coinciden con los PRESET de viewer.js. */
+  --marker-yellow: #facc15;
+  --marker-blue:   #3b82f6;
+  --marker-green:  #22c55e;
+  --marker-red:    #ef4444;
+
+  /* ---------- Tipografía: SOLO fuentes del sistema ---------- */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans",
+    "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+  --weight-bold:    700;
+
+  --leading-tight:  1.2;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+  --leading-loose:  1.7;
+  --tracking-tight: -0.01em;
+  --tracking-wide:  0.02em;
+
+  /* ---------- Escala tipográfica fluida (360 → 1280 px) ----------
+     xs/sm: metadatos y UI densa (nunca < 12 px).  base: cuerpo (≥ 16 px).
+     step-1…5: títulos. Razón 1,2 (móvil) → 1,25 (escritorio). */
+  --text-xs:   clamp(0.75rem,  0.7255rem + 0.1087vw, 0.8125rem);
+  --text-sm:   clamp(0.875rem, 0.8505rem + 0.1087vw, 0.9375rem);
+  --text-base: clamp(1rem,     0.9755rem + 0.1087vw, 1.0625rem);
+  --text-lg:   clamp(1.2rem,   1.1499rem + 0.2228vw, 1.328rem);
+  --text-xl:   clamp(1.44rem,  1.3539rem + 0.3829vw, 1.66rem);
+  --text-2xl:  clamp(1.728rem, 1.5921rem + 0.6038vw, 2.075rem);
+  --text-3xl:  clamp(2.074rem, 1.8700rem + 0.9050vw, 2.594rem);
+  --text-4xl:  clamp(2.488rem, 2.1932rem + 1.3116vw, 3.242rem);
+
+  /* ---------- Espaciado estático (rejilla de 4 px, en rem) ---------- */
+  --space-0:  0;
+  --space-1:  0.25rem;   /*  4 */
+  --space-2:  0.5rem;    /*  8 */
+  --space-3:  0.75rem;   /* 12 */
+  --space-4:  1rem;      /* 16 */
+  --space-5:  1.25rem;   /* 20 */
+  --space-6:  1.5rem;    /* 24 */
+  --space-8:  2rem;      /* 32 */
+  --space-10: 2.5rem;    /* 40 */
+  --space-12: 3rem;      /* 48 */
+  --space-16: 4rem;      /* 64 */
+
+  /* ---------- Espaciado fluido (para secciones, márgenes, huecos de layout) ---------- */
+  --space-fluid-3xs: clamp(0.25rem, 0.2255rem + 0.1087vw, 0.3125rem);
+  --space-fluid-2xs: clamp(0.5rem,  0.4511rem + 0.2174vw, 0.625rem);
+  --space-fluid-xs:  clamp(0.75rem, 0.6766rem + 0.3261vw, 0.9375rem);
+  --space-fluid-s:   clamp(1rem,    0.9022rem + 0.4348vw, 1.25rem);
+  --space-fluid-m:   clamp(1.5rem,  1.3533rem + 0.6522vw, 1.875rem);
+  --space-fluid-l:   clamp(2rem,    1.8043rem + 0.8696vw, 2.5rem);
+  --space-fluid-xl:  clamp(3rem,    2.7065rem + 1.3043vw, 3.75rem);
+  --space-fluid-2xl: clamp(4rem,    3.6087rem + 1.7391vw, 5rem);
+
+  /* ---------- Radios de borde ---------- */
+  --radius-none: 0;
+  --radius-xs:   0.25rem;   /*  4 */
+  --radius-sm:   0.375rem;  /*  6 */
+  --radius-md:   0.5rem;    /*  8 */
+  --radius-lg:   0.75rem;   /* 12 */
+  --radius-xl:   1rem;      /* 16 */
+  --radius-pill: 999px;
+  --radius-full: 50%;
+
+  /* ---------- Bordes ---------- */
+  --border-width: 1px;
+  --border-width-strong: 2px;
+
+  /* ---------- Tamaños táctiles ---------- */
+  --tap-min:     2.75rem;   /* 44 px — objetivo táctil recomendado */
+  --tap-compact: 2rem;      /* 32 px — solo escritorio con puntero fino */
+  --tap-floor:   1.5rem;    /* 24 px — mínimo absoluto WCAG 2.2 (2.5.8) */
+  --icon-sm: 1rem;
+  --icon-md: 1.25rem;
+  --icon-lg: 1.5rem;
+
+  /* ---------- Movimiento ---------- */
+  --duration-instant: 80ms;
+  --duration-fast:    150ms;
+  --duration-base:    220ms;
+  --duration-slow:    320ms;
+  --ease-standard:   cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0, 1);
+  --ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  /* ---------- Capas (z-index) ---------- */
+  --z-base:    0;
+  --z-page-overlay: 5;
+  --z-sticky:  20;
+  --z-float:   30;     /* píldora de zoom, barra de herramientas flotante */
+  --z-menu:    60;
+  --z-overlay: 100;
+  --z-modal:   150;
+  --z-toast:   200;
+
+  /* ---------- Layout ---------- */
+  --container-sm: 40rem;    /* 640  */
+  --container-md: 48rem;    /* 768  */
+  --container-lg: 64rem;    /* 1024 */
+  --container-xl: 80rem;    /* 1280 */
+  --gutter: var(--space-fluid-s);
+  --topbar-h: 3.5rem;
+  --toolbar-w: clamp(3rem, 2.8043rem + 0.8696vw, 3.5rem);
+  --thumbs-w:  clamp(7.5rem, 6.2772rem + 5.4348vw, 10.625rem);
+  --card-min:  clamp(10.5rem, 8.5rem + 8vw, 13.5rem);   /* ancho mínimo de tarjeta en la cuadrícula */
+
+  /* Áreas seguras (notch, barra de gestos). 0 en escritorio. */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+
+  /* Breakpoints (los custom properties no funcionan dentro de @media;
+     se documentan aquí y se usan como literales):
+       móvil   ≤ 480px    · tablet ≥ 768px
+       escritorio ≥ 1024px · ancho ≥ 1280px
+     Escribe siempre mobile-first:  @media (min-width: 48rem) { … }          */
+}
+
+
+/* ==========================================================================
+   2 · SEMÁNTICOS — por propósito. Aquí vive el tema claro / oscuro.
+   --------------------------------------------------------------------------
+   Contrastes MEDIDOS (WCAG 2.2, script de verificación incluido en la respuesta):
+   CLARO   text/bg 16,3 · text/surface 17,9 (AAA) · muted/surface 7,6 · muted/bg 6,9
+           accent-text/surface 6,7 · on-accent/accent 5,2 · danger-text/surface 6,5
+           border-control/surface 4,8 (UI ≥ 3)
+   OSCURO  text/bg 18,0 · text/surface 17,1 (AAA) · muted/surface 7,0 · muted/surface-2 5,7
+           accent-text/surface 9,9 · on-accent/accent 5,2 · danger-text/surface 9,4
+           border-control/surface 3,75 (UI ≥ 3)
+   ALTO CONTRASTE (prefers-contrast: more): texto secundario ≥ 9,4:1 (AAA);
+           botón primario claro 8,7:1 (AAA); oscuro 5,2:1 (AA).
+   ========================================================================== */
+
+/* ---- CLARO (valor por defecto y cuando el sistema está en claro) ---- */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Superficies */
+  --bg:            var(--n-100);   /* fondo de la app            */
+  --surface:       var(--n-0);     /* tarjetas, barras, modales  */
+  --surface-2:     var(--n-50);    /* campos, miniaturas, hover  */
+  --surface-sunken: var(--n-200);  /* zonas hundidas, pistas de slider */
+  --scrim:         rgb(15 23 42 / 0.55);  /* fondo detrás de modales */
+
+  /* Texto */
+  --text:          var(--n-900);   /* AAA */
+  --text-muted:    var(--n-600);   /* AA en todas las superficies; AAA en --surface */
+  --text-disabled: var(--n-500);   /* ¡No cumple AA a propósito (WCAG lo exime)! */
+  --text-inverse:  var(--n-0);
+
+  /* Bordes */
+  --border:         var(--n-300);  /* decorativo: separa zonas, no define controles */
+  --border-control: var(--n-500);  /* ≥ 3:1: inputs, botones outline, swatches */
+
+  /* Acento */
+  --accent:         var(--blue-600);   /* relleno de botones primarios, estado activo */
+  --accent-hover:   var(--blue-700);
+  --accent-active:  var(--blue-800);
+  --on-accent:      var(--n-0);        /* texto/icono sobre --accent: 5,2:1 */
+  --accent-text:    var(--blue-700);   /* acento usado COMO texto/enlace: 6,7:1 */
+  --accent-soft:    rgb(37 99 235 / 0.10);  /* hover/selección suave */
+  --accent-soft-strong: rgb(37 99 235 / 0.18);
+
+  /* Estados */
+  --danger:          var(--red-700);
+  --danger-hover:    var(--red-800);
+  --on-danger:       var(--n-0);
+  --danger-text:     var(--red-700);
+  --danger-soft:     var(--red-50);
+
+  --success-text:    var(--green-800);
+  --success-soft:    var(--green-50);
+
+  --warning-text:    var(--amber-900);
+  --warning-soft:    var(--amber-100);
+
+  /* Iconografía con color propio */
+  --folder-icon:     var(--amber-700);   /* 5,0:1 sobre blanco */
+
+  /* Foco: anillo doble (halo de superficie + color) visible sobre cualquier fondo */
+  --focus:           var(--blue-700);
+  --focus-halo:      var(--n-0);
+
+  /* Selección de texto en el PDF */
+  --selection:       rgb(37 99 235 / 0.30);
+  --selection-neutral: rgb(100 116 139 / 0.35);   /* modo cursor (no subraya) */
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.08);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.10);
+  --shadow-lg: 0 8px 24px rgb(15 23 42 / 0.14);
+  --shadow-page: 0 4px 20px rgb(15 23 42 / 0.25);   /* hoja del PDF */
+}
+
+/* ---- OSCURO por preferencia del sistema (salvo que se fuerce claro) ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg:            var(--n-950);
+    --surface:       var(--n-900);
+    --surface-2:     var(--n-800);
+    --surface-sunken: #070c18;
+    --scrim:         rgb(0 0 0 / 0.65);
+
+    --text:          var(--n-50);
+    --text-muted:    var(--n-400);
+    --text-disabled: var(--n-500);
+    --text-inverse:  var(--n-950);
+
+    --border:         var(--n-800);
+    --border-control: var(--n-500);
+
+    --accent:         var(--blue-600);
+    --accent-hover:   var(--blue-700);
+    --accent-active:  var(--blue-800);
+    --on-accent:      var(--n-0);
+    --accent-text:    var(--blue-300);
+    --accent-soft:    rgb(96 165 250 / 0.14);
+    --accent-soft-strong: rgb(96 165 250 / 0.24);
+
+    --danger:          var(--red-700);
+    --danger-hover:    var(--red-800);
+    --on-danger:       var(--n-0);
+    --danger-text:     var(--red-300);
+    --danger-soft:     rgb(248 113 113 / 0.12);
+
+    --success-text:    var(--green-300);
+    --success-soft:    rgb(134 239 172 / 0.12);
+
+    --warning-text:    var(--amber-300);
+    --warning-soft:    rgb(252 211 77 / 0.12);
+
+    --folder-icon:     var(--amber-400);
+
+    --focus:           var(--blue-300);
+    --focus-halo:      var(--n-950);
+
+    --selection:       rgb(96 165 250 / 0.40);
+    --selection-neutral: rgb(148 163 184 / 0.40);
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.55);
+    --shadow-page: 0 4px 20px rgb(0 0 0 / 0.60);
+  }
+}
+
+/* ---- OSCURO forzado por el usuario (<html data-theme="dark">) ---- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            var(--n-950);
+  --surface:       var(--n-900);
+  --surface-2:     var(--n-800);
+  --surface-sunken: #070c18;
+  --scrim:         rgb(0 0 0 / 0.65);
+
+  --text:          var(--n-50);
+  --text-muted:    var(--n-400);
+  --text-disabled: var(--n-500);
+  --text-inverse:  var(--n-950);
+
+  --border:         var(--n-800);
+  --border-control: var(--n-500);
+
+  --accent:         var(--blue-600);
+  --accent-hover:   var(--blue-700);
+  --accent-active:  var(--blue-800);
+  --on-accent:      var(--n-0);
+  --accent-text:    var(--blue-300);
+  --accent-soft:    rgb(96 165 250 / 0.14);
+  --accent-soft-strong: rgb(96 165 250 / 0.24);
+
+  --danger:          var(--red-700);
+  --danger-hover:    var(--red-800);
+  --on-danger:       var(--n-0);
+  --danger-text:     var(--red-300);
+  --danger-soft:     rgb(248 113 113 / 0.12);
+
+  --success-text:    var(--green-300);
+  --success-soft:    rgb(134 239 172 / 0.12);
+
+  --warning-text:    var(--amber-300);
+  --warning-soft:    rgb(252 211 77 / 0.12);
+
+  --folder-icon:     var(--amber-400);
+
+  --focus:           var(--blue-300);
+  --focus-halo:      var(--n-950);
+
+  --selection:       rgb(96 165 250 / 0.40);
+  --selection-neutral: rgb(148 163 184 / 0.40);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.55);
+  --shadow-page: 0 4px 20px rgb(0 0 0 / 0.60);
+}
+
+/* ---- Tokens independientes del tema (derivados) ---- */
+:root {
+  --focus-ring: 0 0 0 2px var(--focus-halo), 0 0 0 4px var(--focus);
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  --font-body: var(--font-sans);
+  --font-ui:   var(--font-sans);
+}
+
+
+/* ==========================================================================
+   2b · MODO DE ALTO CONTRASTE (prefers-contrast: more) → todo a nivel AAA
+   ========================================================================== */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="light"] {
+    --text-muted:    var(--n-700);     /* 10,4:1 sobre surface */
+    --border:        var(--n-500);
+    --border-control: var(--n-700);
+    --accent-text:   var(--blue-800);  /* 8,7:1 */
+    --accent:        var(--blue-800);  /* on-accent 8,7:1 (AAA) */
+    --accent-hover:  var(--blue-900);
+    --accent-active: var(--blue-900);
+    --focus:         var(--blue-900);
+    --success-text:  var(--green-900);
+    --warning-text:  var(--amber-900);
+    --danger-text:   var(--red-800);
+    --folder-icon:   var(--amber-800);
+    --focus-width: 3px;
+    --focus-ring: 0 0 0 2px var(--focus-halo), 0 0 0 5px var(--focus);
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text:          var(--n-0);
+    --text-muted:    var(--n-300);     /* 12:1 sobre surface */
+    --border:        var(--n-500);
+    --border-control: var(--n-300);
+    --accent-text:   var(--blue-200);
+    --focus:         var(--blue-200);
+    --danger-text:   var(--red-200);
+    --focus-width: 3px;
+    --focus-ring: 0 0 0 2px var(--focus-halo), 0 0 0 5px var(--focus);
+  }
+}
+@media (prefers-contrast: more) {
+  :root[data-theme="dark"] {
+    --text:          var(--n-0);
+    --text-muted:    var(--n-300);
+    --border:        var(--n-500);
+    --border-control: var(--n-300);
+    --accent-text:   var(--blue-200);
+    --focus:         var(--blue-200);
+    --danger-text:   var(--red-200);
+    --focus-width: 3px;
+    --focus-ring: 0 0 0 2px var(--focus-halo), 0 0 0 5px var(--focus);
+  }
+}
+
+/* Colores forzados de Windows (Alto contraste): usa la paleta del sistema */
+@media (forced-colors: active) {
+  :root {
+    --focus: Highlight;
+    --border: CanvasText;
+    --border-control: CanvasText;
+    --accent: Highlight;
+    --on-accent: HighlightText;
+    --accent-text: LinkText;
+    --text: CanvasText;
+    --text-muted: CanvasText;
+    --surface: Canvas;
+    --bg: Canvas;
+    --focus-ring: 0 0 0 2px Canvas, 0 0 0 4px Highlight;
+  }
+}
+
+/* Movimiento reducido: elimina transiciones y scroll suave */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-slow: 0.01ms;
+  }
+  html { scroll-behavior: auto; }
+}
+
+
+/* ==========================================================================
+   3 · COMPONENTES — tokens específicos que apuntan a los semánticos.
+   Cambia aquí el aspecto de un componente sin tocar el tema.
+   ========================================================================== */
+:root {
+  /* Barra superior */
+  --topbar-bg:      var(--surface);
+  --topbar-border:  var(--border);
+  --topbar-pad-x:   var(--space-fluid-s);
+  --topbar-gap:     var(--space-3);
+
+  /* Botón (primario) */
+  --btn-bg:         var(--accent);
+  --btn-bg-hover:   var(--accent-hover);
+  --btn-bg-active:  var(--accent-active);
+  --btn-fg:         var(--on-accent);
+  --btn-radius:     var(--radius-md);
+  --btn-height:     var(--tap-min);
+  --btn-pad-x:      var(--space-4);
+  --btn-font:       var(--text-sm);
+  --btn-weight:     var(--weight-semibold);
+
+  /* Botón secundario / fantasma */
+  --btn2-bg:        transparent;
+  --btn2-bg-hover:  var(--accent-soft);
+  --btn2-fg:        var(--text);
+  --btn2-border:    var(--border-control);
+
+  /* Botón peligro */
+  --btn-danger-bg:       var(--danger);
+  --btn-danger-bg-hover: var(--danger-hover);
+  --btn-danger-fg:       var(--on-danger);
+
+  /* Botón de icono (topbar, tarjetas «⋯», herramientas) */
+  --icon-btn-size:    var(--tap-min);
+  --icon-btn-radius:  var(--radius-md);
+  --icon-btn-fg:      var(--text-muted);
+  --icon-btn-fg-hover: var(--text);
+  --icon-btn-bg-hover: var(--accent-soft);
+  --icon-btn-on-bg:   var(--accent);      /* herramienta activa */
+  --icon-btn-on-fg:   var(--on-accent);
+  --icon-btn-on-danger-bg: var(--danger); /* modo borrar activo */
+
+  /* Campos (buscador, input de página) */
+  --field-bg:       var(--surface-2);
+  --field-fg:       var(--text);
+  --field-border:   var(--border-control);
+  --field-border-focus: var(--focus);
+  --field-placeholder: var(--text-muted);
+  --field-radius:   var(--radius-md);
+  --field-height:   var(--tap-min);
+
+  /* Tarjeta de documento / carpeta */
+  --card-bg:        var(--surface);
+  --card-border:    var(--border);
+  --card-border-hover: var(--accent-text);
+  --card-radius:    var(--radius-lg);
+  --card-pad:       var(--space-4);
+  --card-shadow-hover: var(--shadow-md);
+  --card-title:     var(--text);
+  --card-meta:      var(--text-muted);
+  --card-icon:      var(--accent-text);
+  --card-icon-folder: var(--folder-icon);
+
+  /* Insignia de subrayados (✏ n) */
+  --badge-hl-bg:    var(--warning-soft);
+  --badge-hl-fg:    var(--warning-text);
+  --badge-radius:   var(--radius-pill);
+
+  /* Menú «⋯» y hoja inferior */
+  --menu-bg:        var(--surface);
+  --menu-border:    var(--border);
+  --menu-radius:    var(--radius-lg);
+  --menu-shadow:    var(--shadow-lg);
+  --menu-item-h:    var(--tap-min);
+  --menu-item-hover: var(--accent-soft);
+  --menu-danger-fg: var(--danger-text);
+  --menu-danger-hover: var(--danger-soft);
+
+  /* Diálogos (<dialog>) */
+  --dialog-bg:      var(--surface);
+  --dialog-border:  var(--border);
+  --dialog-radius:  var(--radius-xl);
+  --dialog-shadow:  var(--shadow-lg);
+  --dialog-width:   min(26.25rem, 92vw);
+  --dialog-scrim:   var(--scrim);
+
+  /* Toast / aviso */
+  --toast-bg:       var(--surface);
+  --toast-fg:       var(--text);
+  --toast-border:   var(--border-control);
+  --toast-radius:   var(--radius-lg);
+  --toast-ok:       var(--success-text);
+  --toast-err:      var(--danger-text);
+
+  /* Migas de pan */
+  --crumb-fg:        var(--text-muted);
+  --crumb-fg-hover:  var(--text);
+  --crumb-fg-current: var(--accent-text);
+  --crumb-radius:    var(--radius-md);
+
+  /* Estado de sincronización */
+  --sync-ok-fg:     var(--success-text);
+  --sync-ok-bg:     var(--success-soft);
+  --sync-saving-fg: var(--accent-text);
+  --sync-saving-bg: var(--accent-soft);
+  --sync-off-fg:    var(--danger-text);
+  --sync-off-bg:    var(--danger-soft);
+
+  /* Visor */
+  --viewer-canvas-bg: var(--bg);
+  --page-bg:          #ffffff;              /* la hoja del PDF siempre es blanca */
+  --page-shadow:      var(--shadow-page);
+  --page-radius:      var(--radius-xs);
+  --thumb-border:     var(--border);
+  --thumb-border-active: var(--accent-text);
+  --toolbar-bg:       var(--surface);
+  --toolbar-border:   var(--border);
+  --zoom-pill-bg:     var(--surface);
+  --hl-default-opacity: 0.30;
+
+  /* Swatches de color de subrayado: relleno = marcador, aro = ≥ 3:1 contra la superficie */
+  --swatch-size:     var(--tap-min);        /* área táctil; el círculo visible es 1,5rem */
+  --swatch-dot:      1.5rem;
+  --swatch-ring:     var(--border-control);
+  --swatch-ring-on:  var(--focus);
+
+  /* Capa de texto seleccionable */
+  --text-selection:         var(--selection);
+  --text-selection-neutral: var(--selection-neutral);
+}
+
+
+/* ==========================================================================
+   4 · BASE MÍNIMA que consume los tokens (opcional, 100 % autónoma)
+   ========================================================================== */
+html {
+  font-family: var(--font-body);
+  font-size: 100%;                 /* respeta el tamaño de fuente del usuario */
+  line-height: var(--leading-normal);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  font-size: var(--text-base);
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Foco visible de teclado para TODO (nunca lo elimines sin sustituirlo) */
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+  box-shadow: 0 0 0 var(--focus-offset) var(--focus-halo);   /* halo: separa el anillo de cualquier fondo */
+}
+:focus:not(:focus-visible) { outline: none; }
+
+::selection { background: var(--text-selection); }
+
+/* Utilidades de tipografía fluida */
+.text-xs   { font-size: var(--text-xs); }
+.text-sm   { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg   { font-size: var(--text-lg); }
+.text-xl   { font-size: var(--text-xl); line-height: var(--leading-snug); }
+.text-2xl  { font-size: var(--text-2xl); line-height: var(--leading-tight); }
+.text-3xl  { font-size: var(--text-3xl); line-height: var(--leading-tight); }
+.text-4xl  { font-size: var(--text-4xl); line-height: var(--leading-tight); }
+
+/* Solo lectores de pantalla (para <label> del buscador, etc.) */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Objetivos táctiles: 44 px con puntero grueso; compactos con ratón */
+@media (pointer: fine) {
+  :root {
+    --icon-btn-size: var(--tap-compact);
+    --btn-height:    2.5rem;
+    --field-height:  2.5rem;
+    --menu-item-h:   2.25rem;
+    --swatch-size:   var(--tap-compact);
+  }
+}
+
+
+/* ==========================================================================
+   5 · PUENTE DE COMPATIBILIDAD con tu app.css actual
+   --------------------------------------------------------------------------
+   Tu app.css usa: --bg --panel --panel2 --border --text --muted --accent
+   --accent-soft --red --green --yellow --shadow. Estos alias hacen que siga
+   funcionando mientras migras componente a componente. Cuando termines, borra
+   esta sección.
+   ========================================================================== */
+:root {
+  --panel:   var(--surface);
+  --panel2:  var(--surface-2);
+  --muted:   var(--text-muted);
+  --red:     var(--danger-text);
+  --green:   var(--success-text);
+  --yellow:  var(--folder-icon);
+  --shadow:  var(--shadow-lg);
+}
+
+
+/* ==========================================================================
+   6 · FUENTES LOCALES OPCIONALES (descomenta si quieres una tipografía propia)
+   --------------------------------------------------------------------------
+   Descarga una vez los .woff2 (p. ej. Inter, con licencia OFL), cópialos a
+   /fonts/ en tu NAS y referencia SOLO rutas relativas. Nada sale a la red.
+
+   @font-face {
+     font-family: "NAS Sans";
+     src: url("/fonts/nas-sans-var.woff2") format("woff2");
+     font-weight: 100 900;          // fuente variable
+     font-style: normal;
+     font-display: swap;
+   }
+   :root { --font-body: "NAS Sans", var(--font-sans); }
+   ========================================================================== */

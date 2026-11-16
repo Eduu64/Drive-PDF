@@ -1,66 +1,189 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-toast-popover>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <title>NAS PDF · Mis documentos</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/drive.css">
+  <!-- common.js va en <head> (bloqueante y local) para fijar el tema antes del primer pintado -->
+  <script src="/js/common.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="logo">
-      <span id="logo-icon"></span>
-      <span class="title">NAS PDF</span>
-    </div>
-    <div class="search-wrap">
-      <span id="search-icon"></span>
-      <input id="search" type="text" placeholder="Buscar en toda la biblioteca…" autocomplete="off">
-    </div>
-    <div class="actions">
-      <button id="folder-btn" class="icon-btn" title="Nueva carpeta"></button>
-      <button id="view-btn" class="icon-btn" title="Cambiar cuadrícula / lista"></button>
-      <button id="theme-btn" class="icon-btn" title="Modo día / noche"></button>
-      <button id="upload-btn" class="btn-upload">
-        <span id="upload-icon"></span><span id="upload-label">Subir PDF</span>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+
+  <div class="app" id="app">
+
+    <!-- ===== Barra superior ===== -->
+    <header class="topbar">
+      <button type="button" class="icon-btn nav-btn" id="nav-btn"
+              aria-controls="sidebar" aria-expanded="false" aria-label="Mostrar carpetas">
+        <span data-ic="menu"></span>
       </button>
-    </div>
-  </header>
 
-  <nav class="breadcrumb" id="breadcrumb"></nav>
+      <a class="brand" href="index.html" aria-label="NAS PDF, ir a la biblioteca">
+        <span data-ic="logo"></span><span class="brand-name">NAS PDF</span>
+      </a>
 
-  <main class="files-area" id="files-area">
-    <div id="content" class="loading"><span class="spinner"></span></div>
-    <div class="files-grid" id="grid" style="display:none"></div>
-  </main>
+      <form class="search" id="search-form" role="search">
+        <label for="search" class="sr-only">Buscar en toda la biblioteca</label>
+        <span data-ic="search"></span>
+        <input id="search" type="search" placeholder="Buscar en toda la biblioteca…"
+               autocomplete="off" enterkeyhint="search" aria-keyshortcuts="/">
+      </form>
 
-  <div class="drop-overlay" id="drop-overlay">
-    <div style="text-align:center">
-      <div style="font-size:42px;margin-bottom:8px">⬇</div>
-      Suelta aquí para subir los PDFs a esta carpeta
+      <div class="top-actions">
+        <button type="button" class="icon-btn" id="theme-btn"></button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+      <!-- ===== Barra lateral (cajón en móvil) ===== -->
+      <aside class="sidebar" id="sidebar" aria-labelledby="sb-title">
+        <div class="sidebar-head">
+          <h2 class="sidebar-title" id="sb-title">Carpetas</h2>
+          <button type="button" class="icon-btn sb-close" id="sb-close" aria-label="Cerrar carpetas">
+            <span data-ic="x"></span>
+          </button>
+        </div>
+        <nav aria-labelledby="sb-title">
+          <ul class="tree" id="tree" role="list"></ul>
+        </nav>
+      </aside>
+
+      <!-- ===== Contenido ===== -->
+      <main class="main" id="main" tabindex="-1">
+        <h1 class="sr-only" id="page-title">Biblioteca</h1>
+
+        <div class="toolbar">
+          <nav class="crumbs" id="crumbs" aria-label="Ruta de carpetas"><ol></ol></nav>
+          <h2 class="results-title" id="results-title" hidden></h2>
+
+          <div class="tools">
+            <button type="button" class="btn" id="folder-btn">
+              <span data-ic="folderPlus"></span><span class="btn-label hide-sm">Nueva carpeta</span>
+            </button>
+            <button type="button" class="btn btn-primary" id="upload-btn">
+              <span data-ic="upload"></span><span class="btn-label">Subir PDF</span>
+            </button>
+            <div class="seg" role="group" aria-label="Tipo de vista">
+              <button type="button" class="icon-btn" data-view="grid" aria-pressed="true"
+                      aria-label="Vista de cuadrícula" title="Cuadrícula"><span data-ic="grid"></span></button>
+              <button type="button" class="icon-btn" data-view="list" aria-pressed="false"
+                      aria-label="Vista de lista" title="Lista"><span data-ic="list"></span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="selbar" id="selbar" role="region" aria-label="Acciones de selección" hidden>
+          <span class="sel-count" id="sel-count"></span>
+          <div class="selbar-actions">
+            <button type="button" class="btn" id="sel-all">Seleccionar todo</button>
+            <button type="button" class="btn" id="sel-move"><span data-ic="move"></span><span>Mover</span></button>
+            <button type="button" class="btn btn-danger-soft" id="sel-del"><span data-ic="trash"></span><span>Eliminar</span></button>
+            <button type="button" class="icon-btn" id="sel-clear" aria-label="Cancelar selección"><span data-ic="x"></span></button>
+          </div>
+        </div>
+
+        <ul class="items is-grid" id="items" role="list" aria-busy="true" aria-label="Documentos y carpetas"></ul>
+        <div id="state"></div>
+      </main>
     </div>
   </div>
 
-  <!-- menú de 3 puntos (uno solo, reutilizado) -->
-  <div class="menu" id="menu"></div>
+  <!-- ===== Menú contextual «⋯» (menú desplegable en escritorio, hoja inferior en móvil) ===== -->
+  <div class="menu-scrim" id="menu-scrim" aria-hidden="true"></div>
+  <div class="menu" id="menu" role="menu" hidden></div>
 
-  <!-- modal: mover documento a otra carpeta -->
-  <div class="modal-backdrop" id="move-modal">
-    <div class="modal">
-      <div class="modal-head">
-        <span>Mover «<span id="move-name"></span>» a…</span>
-        <button id="move-close" class="icon-btn" title="Cerrar"></button>
+  <!-- ===== Diálogo: crear carpeta / renombrar ===== -->
+  <dialog class="dialog" id="dlg-name" aria-labelledby="dn-title">
+    <form method="dialog" id="dn-form" novalidate>
+      <div class="dialog-head"><h2 id="dn-title"></h2></div>
+      <div class="dialog-body">
+        <div class="field">
+          <label for="dn-input" id="dn-label"></label>
+          <input id="dn-input" type="text" autocomplete="off" spellcheck="false" aria-describedby="dn-error">
+          <p class="field-error" id="dn-error" role="alert"></p>
+        </div>
       </div>
-      <div class="modal-body" id="move-list"></div>
-      <div class="modal-foot">
-        <button id="move-here" class="btn-upload" style="background:var(--border);color:var(--text)">Mover aquí</button>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="dn-ok"></button>
       </div>
+    </form>
+  </dialog>
+
+  <!-- ===== Diálogo: confirmar ===== -->
+  <dialog class="dialog" id="dlg-confirm" role="alertdialog" aria-labelledby="cf-title" aria-describedby="cf-msg">
+    <form method="dialog">
+      <div class="dialog-head"><h2 id="cf-title"></h2></div>
+      <div class="dialog-body"><p class="dialog-msg" id="cf-msg"></p></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="cf-cancel" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="cf-ok" value="ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== Diálogo: mover a… ===== -->
+  <dialog class="dialog" id="dlg-move" aria-labelledby="mv-title" aria-describedby="mv-desc">
+    <form method="dialog" id="mv-form" novalidate>
+      <div class="dialog-head">
+        <h2 id="mv-title">Mover a…</h2>
+        <p class="dialog-sub" id="mv-desc"></p>
+      </div>
+      <div class="dialog-body">
+        <div class="move-list" id="mv-list" role="radiogroup" aria-labelledby="mv-title"></div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="mv-ok">Mover aquí</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== Diálogo: subir PDF ===== -->
+  <dialog class="dialog dialog-wide" id="dlg-upload" aria-labelledby="up-title" aria-describedby="up-dest">
+    <div class="dialog-head">
+      <h2 id="up-title">Subir PDF</h2>
+      <p class="dialog-sub" id="up-dest"></p>
+    </div>
+    <div class="dialog-body">
+      <div class="dropzone" id="dropzone">
+        <span data-ic="upload"></span>
+        <p class="dz-title">Arrastra tus PDF aquí</p>
+        <p class="dz-or">o</p>
+        <button type="button" class="btn btn-primary" id="dz-pick">Elegir archivos</button>
+      </div>
+      <div class="progress-wrap" id="up-progress-wrap" hidden>
+        <p class="progress-text" id="up-progress-text" aria-live="polite"></p>
+        <div class="progress" id="up-progress" role="progressbar" aria-labelledby="up-progress-text"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+      </div>
+      <ul class="up-list" id="up-list" role="list" aria-label="Estado de cada archivo"></ul>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn" data-close>Cerrar</button>
+    </div>
+  </dialog>
+
+  <!-- ===== Arrastrar y soltar (toda la ventana) ===== -->
+  <div class="drop-overlay" id="drop-overlay" aria-hidden="true">
+    <div class="drop-card">
+      <span data-ic="upload"></span>
+      <p id="drop-text">Suelta aquí para subir los PDF</p>
     </div>
   </div>
+
+  <!-- Región viva para anuncios (resultados, selección, cambio de carpeta…) -->
+  <p class="sr-only" id="status" role="status" aria-live="polite"></p>
 
   <input type="file" id="file-input" accept="application/pdf,.pdf" multiple hidden>
 
-  <script src="/js/common.js"></script>
   <script src="/js/drive.js"></script>
 </body>
 </html>
