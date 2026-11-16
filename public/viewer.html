@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NAS PDF · Subrayado</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="viewer-root">
+    <header class="topbar" style="position:relative">
+      <button id="back-btn" class="icon-btn" title="Volver a Mis documentos"></button>
+      <h2 id="doc-title" style="margin:0;font-size:15px;font-weight:600;word-break:break-all;flex:1;min-width:0"></h2>
+      <form class="page-form" id="page-form">
+        <input type="number" id="page-input" min="1" value="1" title="Ir a la página…" disabled>
+        <span class="total" id="page-total">/ 0</span>
+      </form>
+      <span id="sync-badge" class="sync-badge ok" title="Sincronización con el servidor"><span class="dot"></span><span id="sync-text">Listo</span></span>
+    </header>
+
+    <div class="viewer-body">
+      <aside class="thumbs" id="thumbs"></aside>
+
+      <div class="pages-scroll" id="pages-scroll">
+        <div id="pages-col" style="display:flex;flex-direction:column;align-items:center">
+          <div class="loading" style="padding-top:80px"><span class="spinner"></span></div>
+        </div>
+      </div>
+
+      <div class="toolbar" id="toolbar">
+        <button class="tool" id="btn-cursor" title="Cursor (selección normal, no subraya)">
+          <span id="ic-cursor"></span>
+        </button>
+        <button class="tool on" id="btn-hl" title="Subrayador (selecciona texto para subrayar)">
+          <span id="ic-pen"></span>
+        </button>
+        <button class="tool" id="btn-del-mode" title="Modo borrado (clic sobre un subrayado)">
+          <span id="ic-eraser"></span>
+        </button>
+        <button class="tool" id="btn-wipe" title="Borrar TODOS los subrayados de este documento (deshacible)">
+          <span id="ic-wipe"></span>
+        </button>
+        <button class="tool" id="btn-undo" disabled title="Deshacer (Ctrl+Z)">
+          <span id="ic-undo"></span>
+        </button>
+        <div class="tool-sep"></div>
+        <div id="colors" style="display:flex;flex-direction:column;gap:8px;align-items:center"></div>
+        <div class="tool-sep"></div>
+        <input type="range" class="opacity-slider" id="opacity" min="10" max="80" value="30" title="Opacidad">
+        <div class="tool-sep"></div>
+        <button class="tool" id="btn-sync" title="Sincronizar ahora (Ctrl+S)">
+          <span id="ic-cloud"></span>
+        </button>
+        <button class="tool" id="btn-export" disabled title="Descargar PDF pintado (solo ahora, no se guarda en el servidor)">
+          <span id="ic-download"></span>
+        </button>
+        <div class="tool-sep"></div>
+        <button class="tool" id="btn-pomo" style="flex-direction:column;gap:1px;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums" title="Pomodoro 25 min">
+          <span id="pomo-time">25:00</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="zoom-pill">
+      <button id="zoom-out" title="Menos zoom"></button>
+      <span class="pct" id="zoom-pct">120%</span>
+      <button id="zoom-in" title="Más zoom"></button>
+    </div>
+  </div>
+
+  <script src="/vendor/pdf.min.js"></script>
+  <script src="/vendor/pdf-lib.min.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/viewer.js"></script>
+</body>
+</html>

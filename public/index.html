@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NAS PDF · Mis documentos</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo">
+      <span id="logo-icon"></span>
+      <span class="title">NAS PDF</span>
+    </div>
+    <div class="search-wrap">
+      <span id="search-icon"></span>
+      <input id="search" type="text" placeholder="Buscar en toda la biblioteca…" autocomplete="off">
+    </div>
+    <div class="actions">
+      <button id="folder-btn" class="icon-btn" title="Nueva carpeta"></button>
+      <button id="view-btn" class="icon-btn" title="Cambiar cuadrícula / lista"></button>
+      <button id="theme-btn" class="icon-btn" title="Modo día / noche"></button>
+      <button id="upload-btn" class="btn-upload">
+        <span id="upload-icon"></span><span id="upload-label">Subir PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="breadcrumb" id="breadcrumb"></nav>
+
+  <main class="files-area" id="files-area">
+    <div id="content" class="loading"><span class="spinner"></span></div>
+    <div class="files-grid" id="grid" style="display:none"></div>
+  </main>
+
+  <div class="drop-overlay" id="drop-overlay">
+    <div style="text-align:center">
+      <div style="font-size:42px;margin-bottom:8px">⬇</div>
+      Suelta aquí para subir los PDFs a esta carpeta
+    </div>
+  </div>
+
+  <!-- menú de 3 puntos (uno solo, reutilizado) -->
+  <div class="menu" id="menu"></div>
+
+  <!-- modal: mover documento a otra carpeta -->
+  <div class="modal-backdrop" id="move-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <span>Mover «<span id="move-name"></span>» a…</span>
+        <button id="move-close" class="icon-btn" title="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="move-list"></div>
+      <div class="modal-foot">
+        <button id="move-here" class="btn-upload" style="background:var(--border);color:var(--text)">Mover aquí</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept="application/pdf,.pdf" multiple hidden>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/drive.js"></script>
+</body>
+</html>

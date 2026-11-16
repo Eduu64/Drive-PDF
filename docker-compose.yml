@@ -1,0 +1,84 @@
+# ============================================================================
+# NAS-PDF Lite — 2 contenedores, aislamiento a nivel Docker (sin tocar el S.O.)
+#
+# TOPOLOGÍA DE SEGURIDAD:
+#
+#   tu LAN ──► [ proxy nginx ]──(red "interna", internal:true)──► [ nas-pdf ]
+#              único puerto                                       │
+#              publicado (8090)                                   └─ CERO salida a
+#                                                                 Internet: Docker
+#                                          │                      lo GARANTIZA
+#                                          └─ solo habla con      (network internal)
+#                                             nas-pdf, nunca
+#                                             hacia fuera
+#
+#   - La app NO tiene "ports:" => nadie puede conectarse a ella ni desde el
+#     anfitrión; solo el proxy la alcanza por la red interna.
+#   - La red "interna" es internal:true => Docker no le da ruta a Internet.
+#     La app no puede hacer NI UNA conexión saliente (verificable: ver README).
+#   - El proxy aplica además la allowlist LAN ANTES de reenviar: la app nunca
+#     ve una conexión que no venga de tu red local.
+#   - Ambos contenedores: filesystem de solo lectura + no-new-privileges +
+#     límite de RAM. El proxy es la única pieza en la red con puerta de entrada.
+# ============================================================================
+
+services:
+  # ---------------- BACKEND: la app (datos, subrayados) ----------------
+  nas-pdf:
+    build: .
+    container_name: nas_pdf_lite
+    environment:
+      - PORT=8090            # cámbialo aquí si algún día lo necesitas
+      - MAX_MB=512           # tamaño máximo de subida
+      # - NASPDF_TOKEN=mi-secreto   # descomenta para exigir token en escrituras
+    volumes:
+      - ./library:/app/library        # tus PDFs originales (nunca se modifican)
+      - ./annotations:/app/annotations # capas de subrayado JSON (borrables)
+    networks:
+      - interna             # ÚNICA red del backend (internal: sin Internet)
+    # IMPORTANTE: sin "ports:" — inaccesible desde el anfitrión y desde fuera
+    mem_limit: 192m
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # ---------------- PROXY: la única puerta de entrada ----------------
+  proxy:
+    build: ./reverse-proxy
+    container_name: nas_pdf_proxy
+    ports:
+      - "8090:8090"          # el ÚNICO puerto publicado en el anfitrión
+    depends_on:
+      nas-pdf:
+        condition: service_healthy
+    networks:
+      - interna              # reenvía a la app SOLO por aquí
+      - entrada              # recibe tus conexiones de la LAN por aquí
+    mem_limit: 64m
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m
+      - /var/run:size=8m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  interna:
+    internal: true           # <-- LA CLAVE: Docker garantiza cero salida a Internet
+  entrada:
+    driver: bridge           # red normal, solo para recibir tus conexiones LAN
