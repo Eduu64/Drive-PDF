@@ -69,6 +69,8 @@ curl http://<TU-IP>:8090/api/health   # desde tu LAN => JSON ok
 #   y desde una red ajena (móvil con datos, VPN…) => 403 Forbidden
 ```
 
+**Si al escribir (crear carpeta / subir PDF) vieras un 500**, el mensaje te dice la causa exacta (`— sin permisos de escritura en el volumen (EACCES)`). Lo normal es que no lo veas nunca: el contenedor **ajusta solo el dueño de `library/` y `annotations/` al arrancar** (arranca, hace `chown` a su usuario interno y baja a usuario sin privilegios con `su-exec` antes de servir ni una petición). Si tu S.O. impidiera ese ajuste, `sudo chown -R 1000:1000 library annotations` lo resuelve. El log de arranque también avisa (`⚠ AVISO: library/ NO es escribible…`) si algo no está bien.
+
 - **Funciona con DHCP**: la IP que te diga tu programa cada día es suficiente (Docker publica el 8090 en todas las interfaces del anfitrión).
 - **Token de escritura opcional**: arranca con `NASPDF_TOKEN=mi-secreto` (línea comentada en el compose) y todas las operaciones de escritura (subir, borrar, mover, guardar subrayados) exigirán el token; las lecturas siguen libres para tus dispositivos. La web lo pide una vez y lo guarda.
 - Blindaje **extra** opcional (tercera capa, si quieres rematarlo a nivel de S.O. — no es necesario):
@@ -86,7 +88,7 @@ docker-compose up -d --build
 # abre http://<TU-IP>:8090   (la IP que te diga tu programa cada día)
 ```
 
-> La **primera** construcción descarga las imágenes base una vez (`node:20-alpine` y `nginx:1.26-alpine`); a partir de ahí todo funciona sin Internet. Si no tienes Docker: `node server.js` (sin proxy, la app mantiene su filtro LAN propio). Con token: `NASPDF_TOKEN=mi-secreto node server.js` (o descomenta la línea del compose).
+> La **primera** construcción descarga las imágenes base una vez (`node:20-alpine` y `nginx:1.26-alpine`); a partir de ahí todo funciona sin Internet. Las carpetas `library/` y `annotations/` pueden pertenecer a cualquier usuario del servidor: el contenedor adapta los permisos al arrancar. Si no tienes Docker: `node server.js` (sin proxy, la app mantiene su filtro LAN propio). Con token: `NASPDF_TOKEN=mi-secreto node server.js` (o descomenta la línea del compose).
 
 | Variable | Defecto | Qué hace |
 |---|---|---|
@@ -110,7 +112,7 @@ Guía en [`migrate/README.md`](migrate/README.md): dos scripts (solo librería e
 
 ## Seguridad incorporada
 
-**A nivel Docker**: proxy nginx con allowlist LAN (único puerto publicado) · backend sin puertos y en red `internal` sin ruta a Internet · filesystems de solo lectura · `no-new-privileges` · límites de RAM y healthchecks. **En la app**: filtro LAN propio por conexión · nombres y rutas validados (sin path traversal, profundidad máxima 6) · límites de tamaño (subida y capa JSON) · validación estricta de coordenadas · CSP estricta (`script-src 'self'`) · sin CORS abierto (todo es same-origin) · token opcional para escrituras. **En el proxy**: cabeceras `X-Frame-Options DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` y versión de servidor oculta.
+**A nivel Docker**: proxy nginx con allowlist LAN (único puerto publicado) · backend sin puertos y en red `internal` sin ruta a Internet · filesystems de solo lectura · `no-new-privileges` · límites de RAM y healthchecks · el contenedor ajusta el dueño de los volúmenes al arrancar y baja a usuario sin privilegios (`su-exec`) antes de servir. **En la app**: filtro LAN propio por conexión · nombres y rutas validados (sin path traversal, profundidad máxima 6) · límites de tamaño (subida y capa JSON) · validación estricta de coordenadas · CSP estricta (`script-src 'self'`) · sin CORS abierto (todo es same-origin) · token opcional para escrituras. **En el proxy**: cabeceras `X-Frame-Options DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` y versión de servidor oculta.
 
 ## Ideas para seguir endureciendo (no incluidas, por diseño compacto)
 
@@ -139,6 +141,7 @@ NAS-PDF-Lite/
 ├── library/               ← tus PDFs (git-ignorado)
 ├── annotations/           ← capas de subrayado JSON (git-ignoradas)
 ├── migrate/               ← migración desde el stack viejo
-├── Dockerfile             ← imagen de la app (Node, usuario sin privilegios)
+├── docker-entrypoint.sh   ← ajusta el dueño de los volúmenes y baja a 'node'
+├── Dockerfile             ← imagen de la app (Node, sin dependencias)
 └── docker-compose.yml     ← 2 servicios: proxy (único puerto) + app (red interna)
 ```

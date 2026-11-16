@@ -34,6 +34,9 @@ services:
     volumes:
       - ./library:/app/library        # tus PDFs originales (nunca se modifican)
       - ./annotations:/app/annotations # capas de subrayado JSON (borrables)
+      # El entrypoint del contenedor ajusta el dueño de estas carpetas al
+      # arrancar (chown a uid 1000) y luego baja a usuario sin privilegios:
+      # las escrituras funcionan aunque las carpetas sean de otro uid o de root.
     networks:
       - interna             # ÚNICA red del backend (internal: sin Internet)
     # IMPORTANTE: sin "ports:" — inaccesible desde el anfitrión y desde fuera

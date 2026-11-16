@@ -38,6 +38,22 @@ const MAX_DEPTH = 6;
 fs.mkdirSync(LIB_DIR, { recursive: true });
 fs.mkdirSync(ANN_DIR, { recursive: true });
 
+/* Diagnóstico de permisos de escritura: los volúmenes montados pueden tener
+   otro dueño. En Docker lo arregla docker-entrypoint.sh automáticamente;
+   sin Docker, `chown -R 1000:1000 library annotations` lo resuelve. */
+function causaEscritura(err) {
+  if (!err) return '';
+  if (err.code === 'EACCES' || err.code === 'EPERM' || err.code === 'EROFS')
+    return ' — sin permisos de escritura en el volumen (' + err.code + ')';
+  return err.code ? ' (' + err.code + ')' : '';
+}
+for (const [nom, dir] of [['library', LIB_DIR], ['annotations', ANN_DIR]]) {
+  try { fs.accessSync(dir, fs.constants.W_OK); }
+  catch {
+    console.log(`  ⚠ AVISO: ${nom}/ NO es escribible por este usuario (uid ${process.getuid()}) — las escrituras fallarán`);
+  }
+}
+
 /* ------------------------------------------------------------------ *
  * Filtrado LAN: solo direcciones privadas / locales                   *
  * ------------------------------------------------------------------ */
@@ -335,14 +351,14 @@ function uploadFile(req, res, rel) {
   });
   req.on('aborted', () => { if (!done) { done = true; cleanup(); } });
   req.on('error', () => { if (!done) { done = true; cleanup(); } });
-  ws.on('error', () => { if (!done) { done = true; cleanup(); try { res.writeHead(500, {'Content-Type':'application/json'}); res.end(JSON.stringify({ error: 'Error al escribir' })); } catch {} } });
+  ws.on('error', (err) => { if (!done) { done = true; cleanup(); try { res.writeHead(500, {'Content-Type':'application/json'}); res.end(JSON.stringify({ error: 'Error al escribir' + causaEscritura(err) })); } catch {} } });
 
   req.pipe(ws);
   ws.on('finish', () => {
     if (done) return;
     done = true;
     fs.rename(tmp, abs, (err) => {
-      if (err) return sendJson(res, 500, { error: 'No se pudo finalizar la subida' });
+      if (err) return sendJson(res, 500, { error: 'No se pudo finalizar la subida' + causaEscritura(err) });
       broadcast('files', {});
       sendJson(res, 200, { ok: true, path: rel });
     });
@@ -397,9 +413,9 @@ function putAnnotations(req, res, rel) {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       const tmp = target + '.part';
       fs.writeFile(tmp, JSON.stringify(clean), (err2) => {
-        if (err2) return sendJson(res, 500, { error: 'No se pudo guardar' });
+        if (err2) return sendJson(res, 500, { error: 'No se pudo guardar' + causaEscritura(err2) });
         fs.rename(tmp, target, (err3) => {
-          if (err3) return sendJson(res, 500, { error: 'No se pudo guardar' });
+          if (err3) return sendJson(res, 500, { error: 'No se pudo guardar' + causaEscritura(err3) });
           broadcast('annotations', { path: rel, count: clean.highlights.length });
           sendJson(res, 200, { ok: true, count: clean.highlights.length, updated: clean.updated });
         });
@@ -419,7 +435,7 @@ function createFolder(req, res, rel) {
   if (rel === null || rel === '') return sendJson(res, 400, { error: 'Nombre de carpeta inválido' });
   fs.mkdir(libAbs(rel), { recursive: false }, (err) => {
     if (err && err.code === 'EEXIST') return sendJson(res, 409, { error: 'Ya existe una carpeta con ese nombre' });
-    if (err) return sendJson(res, 500, { error: 'No se pudo crear la carpeta' });
+    if (err) return sendJson(res, 500, { error: 'No se pudo crear la carpeta' + causaEscritura(err) });
     broadcast('files', {});
     sendJson(res, 200, { ok: true, path: rel });
   });
@@ -572,6 +588,7 @@ if (require.main === module) {
     console.log('');
     console.log('  NAS-PDF Lite v2 listo');
     console.log(`  Escuchando en el puerto ${PORT} (8080 y 8081 siguen libres)`);
+    console.log(`  Usuario:     uid ${process.getuid()}`);
     console.log(`  Biblioteca:  ${LIB_DIR}`);
     console.log(`  Subrayados:  ${ANN_DIR}`);
     console.log(`  Token de escritura: ${TOKEN ? 'ACTIVADO' : 'desactivado (confianza LAN)'}`);
