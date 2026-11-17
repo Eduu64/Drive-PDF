@@ -1,8 +1,7 @@
 # Migración desde el proyecto viejo (Directus + PostgreSQL + MinIO)
 
 La app vieja guardaba: los PDFs originales en MinIO, los metadatos en
-PostgreSQL y los subrayados como filas de la tabla `subrayados`. NAS-PDF
-Lite solo necesita dos carpetas planas:
+PostgreSQL y los subrayados como filas de la tabla `subrayados`. Mi Drive solo necesita dos carpetas planas:
 
 - `library/` → los PDFs originales (tal cual, nunca se modifican)
 - `annotations/` → una capa JSON por documento con los subrayados

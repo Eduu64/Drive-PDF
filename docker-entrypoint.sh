@@ -1,5 +1,5 @@
 #!/bin/sh
-# NAS-PDF Lite — ajusta el dueño de los volúmenes y baja a usuario sin privilegios.
+# Mi Drive — ajusta el dueño de los volúmenes y baja a usuario sin privilegios.
 #
 # Resuelve los 500 al escribir cuando library/ o annotations/ pertenecen a otro
 # uid en el servidor (síntoma: leer funciona, escribir da "No se pudo...").

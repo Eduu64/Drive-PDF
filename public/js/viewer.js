@@ -1,4 +1,4 @@
-/* NAS-PDF Lite — visor con subrayado sincronizado (vanilla, sin React)
+/* Mi Drive — visor con subrayado sincronizado (vanilla, sin React)
  *
  * - Los subrayados viven en una capa JSON por documento (annotations/<nombre>.pdf.json):
  *   el PDF original NUNCA se modifica. Se pueden borrar uno a uno o todos juntos.
@@ -723,7 +723,7 @@ window.addEventListener('keydown', (ev) => {
 async function boot() {
   $('#doc-title').textContent = baseName;
   $('#doc-title').title = fileName;
-  document.title = baseName + ' · NAS PDF';
+  document.title = baseName + ' · Mi Drive';
   buildColors();
   applyMode();
   $('#zoom-pct').textContent = Math.round(scale * 100) + '%';

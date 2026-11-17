@@ -1,4 +1,4 @@
-/* NAS-PDF Lite — estilos del visor (sin Tailwind, sin build)
+/* Mi Drive — estilos del visor (sin Tailwind, sin build)
    Las variables de color/tema NO se definen aquí: vienen de tokens.css
    (cárgalo antes de este archivo), que además da tema sistema/claro/oscuro. */
 * { box-sizing: border-box; }

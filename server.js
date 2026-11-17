@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * NAS-PDF Lite v2 — servidor único SIN dependencias externas (solo Node >= 16).
+ * Mi Drive — servidor único SIN dependencias externas (solo Node >= 16).
  *
  *  - 1 proceso, 1 puerto (8090 por defecto; 8080/8081 libres).
  *  - 100% local: cero llamadas a Internet (ni entrantes de redes ajenas ni
@@ -486,7 +486,7 @@ async function handle(req, res) {
 
   if (p === '/api/health' && method === 'GET') {
     return sendJson(res, 200, {
-      ok: true, app: 'NAS-PDF Lite v2', port: PORT, maxMB: MAX_MB,
+      ok: true, app: 'Mi Drive', port: PORT, maxMB: MAX_MB,
       auth: !!TOKEN, remote: req.socket.remoteAddress, lan: isLan(req.socket.remoteAddress),
     });
   }
@@ -586,7 +586,7 @@ const server = http.createServer((req, res) => {
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log('');
-    console.log('  NAS-PDF Lite v2 listo');
+    console.log('  Mi Drive listo');
     console.log(`  Escuchando en el puerto ${PORT} (8080 y 8081 siguen libres)`);
     console.log(`  Usuario:     uid ${process.getuid()}`);
     console.log(`  Biblioteca:  ${LIB_DIR}`);

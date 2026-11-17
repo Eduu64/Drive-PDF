@@ -1,4 +1,4 @@
-# NAS-PDF Lite — imagen mínima: Node + los archivos del proyecto. Sin build, sin npm install.
+# Mi Drive — imagen mínima: Node + los archivos del proyecto. Sin build, sin npm install.
 FROM node:20-alpine
 
 WORKDIR /app

@@ -1,4 +1,4 @@
-# NAS-PDF Lite
+# Mi Drive
 
 Gestión de PDFs estilo **Drive** (con carpetas, búsqueda y tiempo real) + **app de subrayado** para tu red local, optimizada al máximo en **RAM**, **espacio** y **autonomía**: 100 % local, 100 % tuyo, sin una sola dependencia externa.
 
@@ -49,15 +49,15 @@ Atajos: `Ctrl+S` sincronizar · `Ctrl+Z` deshacer · `Esc` cursor · flechas/`Av
 ## Aislamiento: solo tu LAN, a nivel Docker (sin tocar el S.O.)
 
 ```
-tu LAN ──► [ proxy nginx ]──(red "interna", internal:true)──► [ nas-pdf ]
+tu LAN ──► [ proxy nginx ]──(red "interna", internal:true)──► [ mi-drive ]
            único puerto publicado (8090)                        └─ CERO salida a Internet
 ```
 
 **3 capas, todas dentro del docker-compose (nada de iptables ni firewall del S.O.):**
 
 1. **Proxy nginx con allowlist** (`reverse-proxy/nginx.conf`): es el ÚNICO contenedor con puerto publicado (8090). Antes de reenviar nada, acepta solo direcciones privadas (192.168, 10.x, 172.16–31, loopback, link-local, ULA IPv6 y CGNAT 100.64/10) y rechaza el resto con `403`. Cada intento foráneo queda en su log. Probado con nginx real: IP no privada → 403.
-2. **Backend sin puerta**: `nas-pdf` no declara `ports:` → nadie puede conectar a él ni siquiera desde el anfitrión; solo el proxy lo alcanza por la red interna. La app conserva además su propio filtro LAN (defensa en profundidad: si algo atravesase el proxy, el backend sigue filtrando).
-3. **Cero salida a Internet garantizada por Docker**: la red `interna` se declara `internal: true` → Docker no le da ruta a Internet a esa red. La app (donde están tus datos) **no puede hacer ni una conexión saliente**; el nginx solo se conecta a `nas-pdf`, nunca hacia fuera.
+2. **Backend sin puerta**: `mi-drive` no declara `ports:` → nadie puede conectar a él ni siquiera desde el anfitrión; solo el proxy lo alcanza por la red interna. La app conserva además su propio filtro LAN (defensa en profundidad: si algo atravesase el proxy, el backend sigue filtrando).
+3. **Cero salida a Internet garantizada por Docker**: la red `interna` se declara `internal: true` → Docker no le da ruta a Internet a esa red. La app (donde están tus datos) **no puede hacer ni una conexión saliente**; el nginx solo se conecta a `mi-drive`, nunca hacia fuera.
 
 **Endurecimiento de los contenedores** (en el propio compose): filesystem de solo lectura (`read_only`), sin escalada de privilegios (`no-new-privileges`), límite de RAM (192 MB app / 64 MB proxy), healthchecks, y reinicio automático.
 
@@ -65,11 +65,11 @@ tu LAN ──► [ proxy nginx ]──(red "interna", internal:true)──► [ 
 
 ```bash
 docker compose ps                     # 2 contenedores "healthy"
-docker port nas_pdf_lite              # (vacío) => la app no tiene puertos publicados
-docker inspect nas_pdf_lite --format '{{range $k,$_ := .NetworkSettings.Networks}}{{$k}} {{end}}'
+docker port mi_drive              # (vacío) => la app no tiene puertos publicados
+docker inspect mi_drive --format '{{range $k,$_ := .NetworkSettings.Networks}}{{$k}} {{end}}'
 #   => "interna" (solo esa red)
 # prueba de salida a Internet desde el backend (debe FALLAR):
-docker exec nas_pdf_lite node -e "fetch('http://example.com').then(()=>console.log('¡SALIDA!')).catch(e=>console.log('SIN SALIDA ✓:', e.cause?.code || e.message))"
+docker exec mi_drive node -e "fetch('http://example.com').then(()=>console.log('¡SALIDA!')).catch(e=>console.log('SIN SALIDA ✓:', e.cause?.code || e.message))"
 curl http://<TU-IP>:8090/api/health   # desde tu LAN => JSON ok
 #   y desde una red ajena (móvil con datos, VPN…) => 403 Forbidden
 ```
@@ -79,7 +79,7 @@ curl http://<TU-IP>:8090/api/health   # desde tu LAN => JSON ok
 - **Funciona con DHCP**: la IP que te diga tu programa cada día es suficiente (Docker publica el 8090 en todas las interfaces del anfitrión).
 - **Token de escritura opcional**: arranca con `NASPDF_TOKEN=mi-secreto` (línea comentada en el compose) y todas las operaciones de escritura (subir, borrar, mover, guardar subrayados) exigirán el token; las lecturas siguen libres para tus dispositivos. La web lo pide una vez y lo guarda.
 - Blindaje **extra** opcional (tercera capa, si quieres rematarlo a nivel de S.O. — no es necesario):
-  - **Windows**: `netsh advfirewall firewall add rule name="NAS-PDF solo LAN" dir=in action=allow protocol=TCP localport=8090 remoteip=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`
+  - **Windows**: `netsh advfirewall firewall add rule name="Mi Drive solo LAN" dir=in action=allow protocol=TCP localport=8090 remoteip=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`
   - **Linux**: `ufw allow from 192.168.0.0/16 to any port 8090 proto tcp`
 
 > Nota: el firewall del proyecto viejo solo bloqueaba el tráfico **saliente** de los contenedores; las conexiones entrantes quedaban fuera de sus reglas. Aquí la entrada se filtra en el proxy y la salida se corta en la red interna de Docker — las dos direcciones, a nivel contenedor.
@@ -130,7 +130,7 @@ Guía en [`migrate/README.md`](migrate/README.md): dos scripts (solo librería e
 ## Estructura
 
 ```
-NAS-PDF-Lite/
+Mi-Drive/
 ├── server.js              ← TODO el servidor (Node puro, 0 dependencias)
 ├── public/
 │   ├── index.html         ← app Drive (carpetas, búsqueda, mover, tiempo real)

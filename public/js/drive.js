@@ -1,4 +1,4 @@
-/* NAS PDF — Drive · aplicación principal (refactor)
+/* Mi Drive — Drive · aplicación principal (refactor)
  * Mobile-first · accesible · 100 % local (sin librerías ni red externa).
  * Requiere common.js (api, IC, toast, tema…). */
 'use strict';
@@ -274,7 +274,7 @@ function render(silent) {
   renderCrumbs();
   const title = state.query ? 'Resultados de búsqueda' : (state.cwd ? state.cwd.split('/').pop() : 'Biblioteca');
   $('#page-title').textContent = title;
-  document.title = 'NAS PDF · ' + title;
+  document.title = 'Mi Drive · ' + title;
   renderTree();
 
   const { folders, files } = state.listing;

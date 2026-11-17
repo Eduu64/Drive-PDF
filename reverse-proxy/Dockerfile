@@ -1,4 +1,4 @@
-# NAS-PDF Lite — imagen del proxy inverso: nginx alpino + nuestra config.
+# Mi Drive — imagen del proxy inverso: nginx alpino + nuestra config.
 # ~15 MB. Se construye UNA vez (como la de Node); luego funciona sin Internet.
 FROM nginx:1.26-alpine
 

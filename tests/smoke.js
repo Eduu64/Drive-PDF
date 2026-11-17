@@ -47,7 +47,7 @@ const ok = (c, m) => { c ? pass++ : (fail++, console.log('  ✗ FALLA:', m)); if
   ok(/viewer\.html#a\.pdf/.test($$('.item-link').find((a) => a.textContent === 'a.pdf').href), 'enlace al visor correcto');
   ok($('#crumbs li') && $('#crumbs [aria-current="page"]').textContent === 'Biblioteca', 'breadcrumb con aria-current');
   ok($('#tree a[aria-current="page"]').textContent === 'Biblioteca', 'árbol marca carpeta actual');
-  ok(w.document.title === 'NAS PDF · Biblioteca', 'título de documento');
+  ok(w.document.title === 'Mi Drive · Biblioteca', 'título de documento');
   ok($('#status').textContent.includes('2 carpetas') , 'anuncio en región viva: "' + $('#status').textContent + '"');
 
   console.log('— Selección —');

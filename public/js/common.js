@@ -1,4 +1,4 @@
-/* NAS-PDF Lite — utilidades compartidas (sin frameworks, 100 % local)
+/* Mi Drive — utilidades compartidas (sin frameworks, 100 % local)
  * v2: iconos IC (SVG inline escalables + tipos de archivo), tema sistema/claro/oscuro,
  *     toasts accesibles. Todo lo anterior (I, api, fmt*, ensureAuth) se mantiene. */
 'use strict';
@@ -191,7 +191,7 @@ async function api(pathname, opts = {}) {
   }
   if (res.status === 401) {
     // token ausente o incorrecto: preguntar una vez y reintentar
-    const asked = prompt('Esta NAS-PDF pide TOKEN DE ESCRITURA (variable NASPDF_TOKEN del servidor):');
+    const asked = prompt('Esta Mi Drive pide TOKEN DE ESCRITURA (variable NASPDF_TOKEN del servidor):');
     if (asked !== null) {
       localStorage.setItem('naspdf-token', asked.trim());
       return api(pathname, opts);
@@ -212,7 +212,7 @@ async function ensureAuth() {
   try {
     const cfg = await api('/api/config');
     if (cfg.auth && !localStorage.getItem('naspdf-token')) {
-      const asked = prompt('Esta NAS-PDF pide TOKEN DE ESCRITURA (variable NASPDF_TOKEN del servidor):');
+      const asked = prompt('Esta Mi Drive pide TOKEN DE ESCRITURA (variable NASPDF_TOKEN del servidor):');
       if (asked !== null) localStorage.setItem('naspdf-token', asked.trim());
     }
   } catch {}
