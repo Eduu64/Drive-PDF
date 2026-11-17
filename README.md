@@ -142,6 +142,8 @@ NAS-PDF-Lite/
 │   ├── js/drive.js        ← lógica de la biblioteca (árbol, selección, diálogos, hash)
 │   ├── js/viewer.js       ← visor + subrayado + sincronización + SSE
 │   └── vendor/            ← pdf.js 3.11.174 + pdf-lib 1.17.1 vendidos
+├── tests/                 ← smoke.js de desarrollo (48 comprobaciones del Drive)
+│   └── smoke.js           ←   requiere `npm i jsdom@24` — SOLO desarrollo, la web no depende de jsdom
 ├── reverse-proxy/         ← nginx: allowlist LAN, cabeceras, SSE sin buffering
 │   ├── nginx.conf         ←   (config completa, ~80 líneas)
 │   └── Dockerfile         ←   nginx:1.26-alpine (~15 MB)

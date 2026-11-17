@@ -767,7 +767,7 @@ async function runUploads() {
   while (up.queue.length) {
     const job = up.queue.shift();
     setRow(job.row, 'run');
-    job.row.scrollIntoView({ block: 'nearest' });
+    job.row.scrollIntoView?.({ block: 'nearest' });
     const path = job.dir ? job.dir + '/' + job.file.name : job.file.name;
     try {
       await api('/api/files?path=' + encodeURIComponent(path), { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: job.file });
