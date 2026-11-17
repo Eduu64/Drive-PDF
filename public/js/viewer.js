@@ -56,6 +56,7 @@ const btnSync = $('#btn-sync');
 const btnExport = $('#btn-export');
 const btnPomo = $('#btn-pomo');
 const pomoTime = $('#pomo-time');
+const btnPomoReset = $('#btn-pomo-reset');
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdf.worker.min.js';
 
@@ -536,14 +537,20 @@ btnExport.addEventListener('click', async () => {
   }
 });
 
-/* ---------- pomodoro ---------- */
+/* ---------- pomodoro (píldora en la topbar, solo modo lectura) ---------- */
+btnPomoReset.innerHTML = I.undo;
 let pomoLeft = 1500, pomoOn = false, pomoInterval = null;
 function drawPomo() {
-  pomoTime.textContent = Math.floor(pomoLeft / 60).toString().padStart(2, '0') + ':' + String(pomoLeft % 60).padStart(2, '0');
+  const t = Math.floor(pomoLeft / 60).toString().padStart(2, '0') + ':' + String(pomoLeft % 60).padStart(2, '0');
+  pomoTime.textContent = t;
+  btnPomo.classList.toggle('on', pomoOn);
+  btnPomo.setAttribute('aria-pressed', String(pomoOn));
+  btnPomo.title = pomoOn ? 'Pomodoro: pausar' : 'Pomodoro: iniciar';
+  btnPomo.setAttribute('aria-label', btnPomo.title + ' (' + t + ')');
+  btnPomoReset.disabled = !pomoOn && pomoLeft === 1500;
 }
 btnPomo.addEventListener('click', () => {
   pomoOn = !pomoOn;
-  btnPomo.classList.toggle('on', pomoOn);
   clearInterval(pomoInterval);
   if (pomoOn) {
     pomoInterval = setInterval(() => {
@@ -551,13 +558,18 @@ btnPomo.addEventListener('click', () => {
       if (pomoLeft <= 0) {
         clearInterval(pomoInterval);
         pomoOn = false; pomoLeft = 1500;
-        btnPomo.classList.remove('on');
         toast('Pomodoro terminado (25 min)');
       }
       drawPomo();
     }, 1000);
   }
   drawPomo();
+});
+btnPomoReset.addEventListener('click', () => {
+  clearInterval(pomoInterval);
+  pomoOn = false; pomoLeft = 1500;
+  drawPomo();
+  toast('Pomodoro reiniciado (25:00)');
 });
 drawPomo();
 

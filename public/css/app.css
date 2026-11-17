@@ -152,6 +152,21 @@ a { color: var(--accent); text-decoration: none; }
 }
 /* modo lectura: visor normal, sin herramientas de subrayado ni estado de sincronización */
 body.reading .toolbar, body.reading .sync-badge { display: none; }
+
+/* pomodoro: píldora en la topbar, solo en modo lectura (al editar se oculta) */
+.pomo-pill { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+body:not(.reading) .pomo-pill { display: none; }
+.pomo-btn {
+  border: none; background: none; color: var(--text); cursor: pointer;
+  padding: 8px 10px; border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  transition: background .15s, color .15s;
+}
+.pomo-btn:hover { background: var(--accent-soft); }
+.pomo-btn.on { color: var(--accent); background: var(--accent-soft); }
+.pomo-pill .icon-btn { padding: 7px; }
+.pomo-pill .icon-btn:disabled { opacity: .35; cursor: default; }
+.pomo-pill .icon-btn:disabled:hover { background: none; color: var(--muted); }
 .tool {
   padding: 8px; border-radius: 9px; color: var(--muted); display: inline-flex;
   transition: background .15s, color .15s; position: relative;
@@ -217,6 +232,9 @@ input[type="range"].opacity-slider {
   .topbar .logo span.title { display: none; }
   .files-area { padding: 14px; }
   .breadcrumb { padding: 8px 14px; }
+  .topbar { gap: 8px; padding: 8px 12px; }
+  .pomo-btn { font-size: 12px; padding: 7px 8px; }
+  .pomo-pill .icon-btn { padding: 6px; }
 }
 
 /* ---------- migas de pan (carpetas) ---------- */

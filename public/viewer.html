@@ -17,6 +17,12 @@
         <input type="number" id="page-input" min="1" value="1" title="Ir a la página…" disabled>
         <span class="total" id="page-total">/ 0</span>
       </form>
+      <div id="pomo-pill" class="pomo-pill">
+        <button id="btn-pomo" class="pomo-btn" aria-pressed="false" title="Pomodoro: iniciar">
+          <span id="pomo-time">25:00</span>
+        </button>
+        <button id="btn-pomo-reset" class="icon-btn" title="Reiniciar pomodoro (vuelve a 25:00)" aria-label="Reiniciar pomodoro" disabled></button>
+      </div>
       <button id="edit-btn" class="icon-btn" title="Editar subrayados" style="display:none"></button>
       <span id="sync-badge" class="sync-badge ok" title="Sincronización con el servidor"><span class="dot"></span><span id="sync-text">Listo</span></span>
     </header>
@@ -56,10 +62,6 @@
         </button>
         <button class="tool" id="btn-export" disabled title="Descargar PDF pintado (solo ahora, no se guarda en el servidor)">
           <span id="ic-download"></span>
-        </button>
-        <div class="tool-sep"></div>
-        <button class="tool" id="btn-pomo" style="flex-direction:column;gap:1px;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums" title="Pomodoro 25 min">
-          <span id="pomo-time">25:00</span>
         </button>
       </div>
     </div>
