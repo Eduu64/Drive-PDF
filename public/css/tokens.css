@@ -9,7 +9,7 @@
      (≥ 4,5:1) y AAA en `prefers-contrast: more`. Bordes de controles ≥ 3:1.
    · Escalas fluidas con clamp() entre 360 px y 1280 px de viewport. Mínimo y
      máximo en rem, así el zoom/tamaño de fuente del usuario se respeta (WCAG 1.4.4).
-   · Orden de carga:  <link rel="stylesheet" href="/css/tokens.css">  antes de app.css
+   · Orden de carga:  tokens.css  →  drive.css (index.html)  ó  viewer.css (viewer.html)
    ========================================================================== */
 
 
@@ -657,26 +657,7 @@ body {
 
 
 /* ==========================================================================
-   5 · PUENTE DE COMPATIBILIDAD con tu app.css actual
-   --------------------------------------------------------------------------
-   Tu app.css usa: --bg --panel --panel2 --border --text --muted --accent
-   --accent-soft --red --green --yellow --shadow. Estos alias hacen que siga
-   funcionando mientras migras componente a componente. Cuando termines, borra
-   esta sección.
-   ========================================================================== */
-:root {
-  --panel:   var(--surface);
-  --panel2:  var(--surface-2);
-  --muted:   var(--text-muted);
-  --red:     var(--danger-text);
-  --green:   var(--success-text);
-  --yellow:  var(--folder-icon);
-  --shadow:  var(--shadow-lg);
-}
-
-
-/* ==========================================================================
-   6 · FUENTES LOCALES OPCIONALES (descomenta si quieres una tipografía propia)
+   5 · FUENTES LOCALES OPCIONALES (descomenta si quieres una tipografía propia)
    --------------------------------------------------------------------------
    Descarga una vez los .woff2 (p. ej. Inter, con licencia OFL), cópialos a
    /fonts/ en tu NAS y referencia SOLO rutas relativas. Nada sale a la red.

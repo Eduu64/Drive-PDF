@@ -1,81 +1,142 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-toast-popover>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <title>Mi Drive · Documento</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/tokens.css">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/viewer.css">
+  <!-- common.js va en <head> (bloqueante y local) para fijar el tema antes del primer pintado -->
+  <script src="/js/common.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#pages-scroll">Saltar al documento</a>
+
   <div class="viewer-root">
-    <header class="topbar" style="position:relative">
-      <button id="back-btn" class="icon-btn" title="Volver a Mis documentos"></button>
-      <h2 id="doc-title" style="margin:0;font-size:15px;font-weight:600;word-break:break-all;flex:1;min-width:0"></h2>
-      <form class="page-form" id="page-form">
-        <input type="number" id="page-input" min="1" value="1" title="Ir a la página…" disabled>
+
+    <!-- ===== Barra superior (rejilla: sin posiciones absolutas ni solapamientos) ===== -->
+    <header class="topbar">
+      <a id="back-btn" class="icon-btn back-btn" href="index.html"
+         aria-label="Volver a Mis documentos" title="Volver a Mis documentos"></a>
+
+      <button type="button" id="thumbs-btn" class="icon-btn thumbs-btn"
+              aria-controls="thumbs-drawer" aria-expanded="false"
+              aria-label="Mostrar miniaturas" title="Miniaturas de páginas">
+        <span data-ic="grid"></span>
+      </button>
+
+      <h1 id="doc-title" class="doc-title"></h1>
+
+      <form class="page-form" id="page-form" aria-label="Ir a una página">
+        <input type="number" id="page-input" min="1" value="1" inputmode="numeric"
+               aria-label="Número de página" title="Ir a la página…" disabled>
         <span class="total" id="page-total">/ 0</span>
       </form>
-      <div id="pomo-pill" class="pomo-pill">
-        <button id="btn-pomo" class="pomo-btn" aria-pressed="false" title="Pomodoro: iniciar">
+
+      <div id="pomo-pill" class="pomo-pill" role="group" aria-label="Pomodoro">
+        <button type="button" id="btn-pomo" class="pomo-btn" aria-pressed="false"
+                aria-label="Pomodoro de 25 minutos" aria-describedby="pomo-time" title="Pomodoro: iniciar">
           <span id="pomo-time">25:00</span>
         </button>
-        <button id="btn-pomo-reset" class="icon-btn" title="Reiniciar pomodoro (vuelve a 25:00)" aria-label="Reiniciar pomodoro" disabled></button>
+        <button type="button" id="btn-pomo-reset" class="icon-btn"
+                aria-label="Reiniciar pomodoro" title="Reiniciar pomodoro (vuelve a 25:00)" disabled></button>
       </div>
-      <button id="edit-btn" class="icon-btn" title="Editar subrayados" style="display:none"></button>
-      <span id="sync-badge" class="sync-badge ok" title="Sincronización con el servidor"><span class="dot"></span><span id="sync-text">Listo</span></span>
+
+      <button type="button" id="edit-btn" class="icon-btn edit-btn"
+              aria-label="Editar subrayados" title="Editar subrayados"></button>
+
+      <span id="sync-badge" class="sync-badge ok" role="status" aria-live="polite"
+            title="Sincronización con el servidor"><span class="dot" aria-hidden="true"></span><span id="sync-text">Listo</span></span>
     </header>
 
     <div class="viewer-body">
-      <aside class="thumbs" id="thumbs"></aside>
 
-      <div class="pages-scroll" id="pages-scroll">
-        <div id="pages-col" style="display:flex;flex-direction:column;align-items:center">
-          <div class="loading" style="padding-top:80px"><span class="spinner"></span></div>
+      <!-- ===== Miniaturas: cajón en móvil, columna fija en ≥48em ===== -->
+      <aside class="thumbs-drawer" id="thumbs-drawer" aria-labelledby="thumbs-title">
+        <div class="drawer-head">
+          <h2 class="drawer-title" id="thumbs-title">Páginas</h2>
+          <button type="button" id="thumbs-close" class="icon-btn drawer-close" aria-label="Cerrar miniaturas">
+            <span data-ic="x"></span>
+          </button>
         </div>
-      </div>
+        <!-- viewer.js vacía y rellena #thumbs: por eso el botón de cerrar vive fuera de él -->
+        <div class="thumbs" id="thumbs"></div>
+      </aside>
 
-      <div class="toolbar" id="toolbar">
-        <button class="tool" id="btn-cursor" title="Cursor (selección normal, no subraya)">
+      <!-- ===== Documento ===== -->
+      <main class="viewer-main" id="main">
+        <div class="pages-scroll" id="pages-scroll" tabindex="0" role="region" aria-label="Páginas del documento">
+          <div class="pages-col" id="pages-col">
+            <div class="loading" role="status">
+              <span class="spinner" aria-hidden="true"></span>
+              <span class="sr-only">Cargando documento…</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ===== Herramientas: barra inferior en móvil, columna derecha en ≥48em =====
+           (role="group" y no "toolbar": viewer.js usa las flechas para cambiar de página,
+            así que no podemos prometer navegación con flechas dentro de la barra) -->
+      <div class="toolbar" id="toolbar" role="group" aria-label="Herramientas de subrayado">
+        <button type="button" class="tool" id="btn-cursor" aria-pressed="false"
+                aria-label="Cursor: seleccionar sin subrayar" title="Cursor (selección normal, no subraya)">
           <span id="ic-cursor"></span>
         </button>
-        <button class="tool on" id="btn-hl" title="Subrayador (selecciona texto para subrayar)">
+        <button type="button" class="tool on" id="btn-hl" aria-pressed="true"
+                aria-label="Subrayador" title="Subrayador (selecciona texto para subrayar)">
           <span id="ic-pen"></span>
         </button>
-        <button class="tool" id="btn-del-mode" title="Modo borrado (clic sobre un subrayado)">
+        <button type="button" class="tool" id="btn-del-mode" aria-pressed="false"
+                aria-label="Modo borrado: pulsa un subrayado para quitarlo" title="Modo borrado (clic sobre un subrayado)">
           <span id="ic-eraser"></span>
         </button>
-        <button class="tool" id="btn-wipe" title="Borrar TODOS los subrayados de este documento (deshacible)">
+        <button type="button" class="tool" id="btn-wipe"
+                aria-label="Borrar todos los subrayados de este documento" title="Borrar TODOS los subrayados de este documento (deshacible)">
           <span id="ic-wipe"></span>
         </button>
-        <button class="tool" id="btn-undo" disabled title="Deshacer (Ctrl+Z)">
+        <button type="button" class="tool" id="btn-undo" disabled
+                aria-label="Deshacer" aria-keyshortcuts="Control+Z" title="Deshacer (Ctrl+Z)">
           <span id="ic-undo"></span>
         </button>
-        <div class="tool-sep"></div>
-        <div id="colors" style="display:flex;flex-direction:column;gap:8px;align-items:center"></div>
-        <div class="tool-sep"></div>
-        <input type="range" class="opacity-slider" id="opacity" min="10" max="80" value="30" title="Opacidad">
-        <div class="tool-sep"></div>
-        <button class="tool" id="btn-sync" title="Sincronizar ahora (Ctrl+S)">
+
+        <div class="tool-sep" aria-hidden="true"></div>
+
+        <div id="colors" class="colors" role="group" aria-label="Color del subrayador"></div>
+
+        <div class="tool-sep" aria-hidden="true"></div>
+
+        <input type="range" class="opacity-slider" id="opacity" min="10" max="80" value="30"
+               aria-label="Opacidad del subrayador" title="Opacidad">
+
+        <div class="tool-sep" aria-hidden="true"></div>
+
+        <button type="button" class="tool" id="btn-sync"
+                aria-label="Sincronizar ahora" aria-keyshortcuts="Control+S" title="Sincronizar ahora (Ctrl+S)">
           <span id="ic-cloud"></span>
         </button>
-        <button class="tool" id="btn-export" disabled title="Descargar PDF pintado (solo ahora, no se guarda en el servidor)">
+        <button type="button" class="tool" id="btn-export" disabled
+                aria-label="Descargar PDF con los subrayados" title="Descargar PDF pintado (solo ahora, no se guarda en el servidor)">
           <span id="ic-download"></span>
         </button>
       </div>
     </div>
 
-    <div class="zoom-pill">
-      <button id="zoom-out" title="Menos zoom"></button>
-      <span class="pct" id="zoom-pct">120%</span>
-      <button id="zoom-in" title="Más zoom"></button>
+    <div class="zoom-pill" role="group" aria-label="Zoom">
+      <button type="button" id="zoom-out" class="icon-btn" aria-label="Alejar" title="Menos zoom"></button>
+      <span class="pct" id="zoom-pct" role="status" aria-live="polite">120%</span>
+      <button type="button" id="zoom-in" class="icon-btn" aria-label="Acercar" title="Más zoom"></button>
     </div>
+
+    <div class="scrim" id="scrim" aria-hidden="true"></div>
   </div>
 
   <script src="/vendor/pdf.min.js"></script>
   <script src="/vendor/pdf-lib.min.js"></script>
-  <script src="/js/common.js"></script>
   <script src="/js/viewer.js"></script>
+  <!-- capa de interfaz: cajón de miniaturas + ARIA. No modifica viewer.js (solo observa su DOM) -->
+  <script src="/js/viewer-ui.js"></script>
 </body>
 </html>

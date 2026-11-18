@@ -37,7 +37,7 @@ Es la versión modular del proyecto anterior (Directus + PostgreSQL + MinIO + Re
 
 ## La app de subrayado
 
-Se abre **de forma explícita** (⋮ → *Editar subrayados* en el Drive, o ✏ en el visor de lectura); lo que abre un clic normal es el visor de lectura, sin barra. Barra derecha, de arriba abajo: **Cursor** (la selección normal no subraya; `Esc` vuelve a cursor; se recuerda entre sesiones) · **Subrayador** (selección con fusión de líneas) · **Modo borrado** (clic sobre un subrayado) · **Borrar TODOS los subrayados** (con confirmación y deshacible) · **Deshacer** (`Ctrl+Z`) · colores y opacidad · **Sincronizar** (`Ctrl+S`, con estado *Guardado ✓ / Cambios pendientes…*) · **Descargar PDF pintado** (se genera en tu navegador, no queda nada en el servidor). En el **visor de lectura**, junto al selector de página, hay un **pomodoro de 25 min**: clic en la hora inicia o pausa y el botón ↺ reinicia a 25:00; la píldora se oculta al entrar en modo edición.
+Se abre **de forma explícita** (⋮ → *Editar subrayados* en el Drive, o ✏ en el visor de lectura); lo que abre un clic normal es el visor de lectura, sin barra. El visor rediseñado (2025-11): **barra superior en rejilla** (sin solapamientos, título con elipsis), **miniaturas en cajón deslizante en móvil** (botón propio, fondo oscurecido, foco e `inert` gestionados) y **columna fija en escritorio**, **barra de herramientas abajo en móvil / columna derecha en escritorio**, todo accesible (roles y estados ARIA que siguen en vivo a lo que hace `viewer.js`, `prefers-reduced-motion`, `forced-colors`, áreas seguras para iPhone). Barra derecha, de arriba abajo: **Cursor** (la selección normal no subraya; `Esc` vuelve a cursor; se recuerda entre sesiones) · **Subrayador** (selección con fusión de líneas) · **Modo borrado** (clic sobre un subrayado) · **Borrar TODOS los subrayados** (con confirmación y deshacible) · **Deshacer** (`Ctrl+Z`) · colores y opacidad · **Sincronizar** (`Ctrl+S`, con estado *Guardado ✓ / Cambios pendientes…*) · **Descargar PDF pintado** (se genera en tu navegador, no queda nada en el servidor). En el **visor de lectura**, junto al selector de página, hay un **pomodoro de 25 min**: clic en la hora inicia o pausa y el botón ↺ reinicia a 25:00; la píldora se oculta al entrar en modo edición.
 
 - **Sincronización multi-dispositivo**: autoguardado cada 8 s sin cambios + descarga en vivo — si otro equipo subraya el mismo documento, tu visor recarga la capa solo y avisa con un toast.
 - **Los subrayados NO son persistentes a la fuerza**: puedes borrar uno, todos (botón o ⋮ del Drive), o dejar la capa a cero; el PDF original jamás se toca.
@@ -137,13 +137,16 @@ Mi-Drive/
 │   ├── viewer.html        ← app de subrayado
 │   ├── css/tokens.css     ← sistema de diseño (variables semánticas, AA/AAA, temas)
 │   ├── css/drive.css      ← estilos del Drive (rediseño UI/UX, mobile-first)
-│   ├── css/app.css        ← estilos del visor (usa las variables de tokens.css)
+│   ├── css/viewer.css     ← estilos del visor (mobile-first, usa las variables de tokens.css)
 │   ├── js/common.js       ← helpers + token + iconos (I/IC) + tema 3 estados + toasts
 │   ├── js/drive.js        ← lógica de la biblioteca (árbol, selección, diálogos, hash)
 │   ├── js/viewer.js       ← visor + subrayado + sincronización + SSE
+│   ├── js/viewer-ui.js    ← capa de interfaz del visor (cajón de miniaturas + ARIA)
 │   └── vendor/            ← pdf.js 3.11.174 + pdf-lib 1.17.1 vendidos
-├── tests/                 ← smoke.js de desarrollo (48 comprobaciones del Drive)
-│   └── smoke.js           ←   requiere `npm i jsdom@24` — SOLO desarrollo, la web no depende de jsdom
+├── tests/                 ← smoke tests de desarrollo
+│   ├── smoke.js           ←   48 comprobaciones del Drive
+│   └── viewer-smoke.js    ←   40 comprobaciones del visor — ambos requieren `npm i jsdom@24`
+│                              (SOLO desarrollo, la web no depende de jsdom)
 ├── reverse-proxy/         ← nginx: allowlist LAN, cabeceras, SSE sin buffering
 │   ├── nginx.conf         ←   (config completa, ~80 líneas)
 │   └── Dockerfile         ←   nginx:1.26-alpine (~15 MB)
